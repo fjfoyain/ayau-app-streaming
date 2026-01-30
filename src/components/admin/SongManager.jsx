@@ -298,15 +298,34 @@ export default function SongManager() {
         // Extract metadata
         const metadata = await parseBlob(file);
 
+        // Extract and upload cover image if available
+        let coverUrl = '';
+        if (metadata.common.picture && metadata.common.picture.length > 0) {
+          try {
+            const picture = metadata.common.picture[0];
+            const coverBlob = new Blob([picture.data], { type: picture.format });
+            const coverFile = new File([coverBlob], `cover.${picture.format.split('/')[1]}`, {
+              type: picture.format,
+            });
+
+            // Generate temporary ID for cover (will use song ID after creation)
+            const tempId = `temp_${Date.now()}`;
+            const tempCoverUrl = await uploadCoverImage(coverFile, tempId);
+            coverUrl = tempCoverUrl;
+          } catch (coverError) {
+            console.warn(`Could not extract cover for ${file.name}:`, coverError);
+          }
+        }
+
         // Prepare song data
         const songData = {
           title: metadata.common.title || file.name.replace(/\.[^/.]+$/, ''),
           performer: metadata.common.artist || 'Desconocido',
           author: metadata.common.composer || metadata.common.albumartist || '',
           duration: Math.floor(metadata.format.duration || 0),
-          isrc: metadata.common.isrc || '',
+          isrc: (metadata.common.isrc || '').substring(0, 12), // Limit to 12 chars
           file_url: '', // Will be updated after upload
-          cover_image_url: '',
+          cover_image_url: coverUrl,
         };
 
         // Create song in database
@@ -315,8 +334,25 @@ export default function SongManager() {
         // Upload audio file
         const audioUrl = await uploadAudioFile(file, newSong.id);
 
-        // Update song with file URL
-        await updateSong(newSong.id, { file_url: audioUrl });
+        // Upload cover with correct song ID if we have one
+        if (coverUrl && coverUrl.includes('temp_')) {
+          try {
+            const picture = metadata.common.picture[0];
+            const coverBlob = new Blob([picture.data], { type: picture.format });
+            const coverFile = new File([coverBlob], `cover.${picture.format.split('/')[1]}`, {
+              type: picture.format,
+            });
+            coverUrl = await uploadCoverImage(coverFile, newSong.id);
+          } catch (coverError) {
+            console.warn(`Could not re-upload cover for ${file.name}:`, coverError);
+          }
+        }
+
+        // Update song with file URL and final cover URL
+        await updateSong(newSong.id, {
+          file_url: audioUrl,
+          ...(coverUrl && { cover_image_url: coverUrl })
+        });
 
         results.success.push({
           name: file.name,

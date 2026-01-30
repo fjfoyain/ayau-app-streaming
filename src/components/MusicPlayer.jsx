@@ -130,6 +130,12 @@ export default function MusicPlayer() {
     if (!playlist || songIndex === undefined || songIndex === -1) return;
     const prevIndex = (songIndex - 1 + playlist.length) % playlist.length;
     const prevSong = playlist[prevIndex];
+
+    // Resume AudioContext on navigation
+    if (audioCtxRef.current && audioCtxRef.current.state === 'suspended') {
+      audioCtxRef.current.resume().catch(() => {});
+    }
+
     dispatch({ type: "PREV_SONG", payload: prevSong });
   };
 
@@ -138,6 +144,12 @@ export default function MusicPlayer() {
     if (!playlist || songIndex === undefined || songIndex === -1) return;
     const nextIndex = (songIndex + 1) % playlist.length;
     const nextSong = playlist[nextIndex];
+
+    // Resume AudioContext on navigation
+    if (audioCtxRef.current && audioCtxRef.current.state === 'suspended') {
+      audioCtxRef.current.resume().catch(() => {});
+    }
+
     dispatch({ type: "NEXT_SONG", payload: nextSong });
   };
 
@@ -240,6 +252,17 @@ export default function MusicPlayer() {
           }
 
           analyser.getByteFrequencyData(dataArray);
+
+          // Debug: Log first few values to verify we're getting data
+          if (Math.random() < 0.01) { // Log only 1% of frames
+            const sum = dataArray.reduce((a, b) => a + b, 0);
+            console.log('Visualizer data:', {
+              state: audioCtx.state,
+              sum,
+              sample: dataArray.slice(0, 5),
+              playing: !audio.paused
+            });
+          }
 
           // Clear canvas with black background
           ctx.clearRect(0, 0, canvas.width, canvas.height);
