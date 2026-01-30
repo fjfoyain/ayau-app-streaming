@@ -33,8 +33,11 @@ export default function MusicPlayer() {
   const analyserRef = useRef(null);
   const animationRef = useRef(null);
 
+  // Default cover as SVG data URI (avoid 404 on missing file)
+  const defaultCover = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Crect width='300' height='300' fill='%23000'/%3E%3Ctext x='150' y='150' font-family='Arial' font-size='60' fill='%23F4D03F' text-anchor='middle' dominant-baseline='middle'%3E%E2%99%AB%3C/text%3E%3C/svg%3E";
+
   // Cover preload to avoid flicker
-  const [displayedCover, setDisplayedCover] = useState('/default-cover.png');
+  const [displayedCover, setDisplayedCover] = useState(defaultCover);
   const pendingCoverRef = useRef(null);
 
   useEffect(() => {
@@ -113,6 +116,12 @@ export default function MusicPlayer() {
 
   const handlePlayPause = () => {
     if (!state.currentSong) return;
+
+    // Resume AudioContext on user interaction (required for autoplay policies)
+    if (audioCtxRef.current && audioCtxRef.current.state === 'suspended') {
+      audioCtxRef.current.resume().catch(() => {});
+    }
+
     dispatch({ type: "TOGGLE_PLAY_PAUSE" });
   };
 
@@ -145,8 +154,8 @@ export default function MusicPlayer() {
   };
 
   const coverImageSrc = useMemo(() => {
-    return state?.currentSong?.coverImage || '/default-cover.png';
-  }, [state?.currentSong?.coverImage]);
+    return state?.currentSong?.coverImage || defaultCover;
+  }, [state?.currentSong?.coverImage, defaultCover]);
 
   // Preload cover and set with fade to avoid flicker
   useEffect(() => {
@@ -169,9 +178,6 @@ export default function MusicPlayer() {
 
     const initVisualizer = async () => {
       try {
-        // Set CORS for audio element
-        audio.crossOrigin = 'anonymous';
-
         const AudioContext = window.AudioContext || window.webkitAudioContext;
 
         // Create AudioContext only once
@@ -180,11 +186,6 @@ export default function MusicPlayer() {
         }
 
         const audioCtx = audioCtxRef.current;
-
-        // Resume context if suspended
-        if (audioCtx.state === 'suspended') {
-          await audioCtx.resume();
-        }
 
         // Create analyser only once
         if (!analyserRef.current) {
@@ -232,6 +233,11 @@ export default function MusicPlayer() {
         const draw = () => {
           if (!mounted) return;
           animationRef.current = requestAnimationFrame(draw);
+
+          // Resume AudioContext if suspended (important for autoplay policies)
+          if (audioCtx.state === 'suspended') {
+            audioCtx.resume().catch(() => {});
+          }
 
           analyser.getByteFrequencyData(dataArray);
 
