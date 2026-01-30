@@ -123,13 +123,23 @@ export default function SongManager() {
       }
 
       // Update form with extracted metadata
+      // Handle ISRC - it might be a string, array, or other type
+      let isrcValue = '';
+      if (metadata.common.isrc) {
+        if (Array.isArray(metadata.common.isrc)) {
+          isrcValue = String(metadata.common.isrc[0] || '').substring(0, 12);
+        } else {
+          isrcValue = String(metadata.common.isrc).substring(0, 12);
+        }
+      }
+
       setFormData(prev => ({
         ...prev,
         title: metadata.common.title || file.name.replace(/\.[^/.]+$/, ''),
         performer: metadata.common.artist || '',
         author: metadata.common.composer || metadata.common.albumartist || '',
         duration: Math.floor(metadata.format.duration || 0),
-        isrc: (metadata.common.isrc || '').substring(0, 12), // Limit to 12 chars
+        isrc: isrcValue,
         cover_image_url: coverDataUrl, // Preview data URL (will be uploaded on submit)
       }));
 
@@ -366,13 +376,23 @@ export default function SongManager() {
           }
         }
 
+        // Handle ISRC - it might be a string, array, or other type
+        let isrcValue = '';
+        if (metadata.common.isrc) {
+          if (Array.isArray(metadata.common.isrc)) {
+            isrcValue = String(metadata.common.isrc[0] || '').substring(0, 12);
+          } else {
+            isrcValue = String(metadata.common.isrc).substring(0, 12);
+          }
+        }
+
         // Prepare song data
         const songData = {
           title: metadata.common.title || file.name.replace(/\.[^/.]+$/, ''),
           performer: metadata.common.artist || 'Desconocido',
           author: metadata.common.composer || metadata.common.albumartist || '',
           duration: Math.floor(metadata.format.duration || 0),
-          isrc: (metadata.common.isrc || '').substring(0, 12), // Limit to 12 chars
+          isrc: isrcValue,
           file_url: '', // Will be updated after upload
           cover_image_url: coverUrl,
         };
