@@ -101,14 +101,24 @@ export default function SongManager() {
         try {
           const picture = metadata.common.picture[0];
           const blob = new Blob([picture.data], { type: picture.format });
+
           // Convert to data URL for preview
           const reader = new FileReader();
-          coverDataUrl = await new Promise((resolve) => {
+          const dataUrl = await new Promise((resolve, reject) => {
             reader.onload = (e) => resolve(e.target.result);
+            reader.onerror = (e) => reject(e);
             reader.readAsDataURL(blob);
           });
+          coverDataUrl = dataUrl;
+
+          // Store the cover file for upload later
+          const coverFile = new File([blob], `cover.${picture.format.split('/')[1]}`, {
+            type: picture.format,
+          });
+          window.tempCoverFile = coverFile;
         } catch (coverError) {
-          console.warn('Could not extract cover:', coverError);
+          console.error('Could not extract cover:', coverError);
+          coverDataUrl = ''; // Ensure it's empty on error
         }
       }
 
@@ -123,18 +133,8 @@ export default function SongManager() {
         cover_image_url: coverDataUrl, // Preview data URL (will be uploaded on submit)
       }));
 
-      // Store the original picture data for upload later
-      if (metadata.common.picture && metadata.common.picture.length > 0) {
-        const picture = metadata.common.picture[0];
-        const coverBlob = new Blob([picture.data], { type: picture.format });
-        const coverFile = new File([coverBlob], `cover.${picture.format.split('/')[1]}`, {
-          type: picture.format,
-        });
-        // Store in a ref or state for later upload
-        window.tempCoverFile = coverFile;
-      }
-
-      alert('Metadata y cover extraídos exitosamente!');
+      const coverMsg = coverDataUrl ? ' y cover' : '';
+      alert(`Metadata${coverMsg} extraídos exitosamente!`);
     } catch (error) {
       console.error('Error extracting metadata:', error);
       alert('No se pudo extraer metadata. Ingresa los datos manualmente.');
