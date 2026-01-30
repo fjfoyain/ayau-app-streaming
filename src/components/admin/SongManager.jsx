@@ -95,6 +95,23 @@ export default function SongManager() {
       // Extract metadata from audio file
       const metadata = await parseBlob(file);
 
+      // Extract and prepare cover image if available
+      let coverDataUrl = '';
+      if (metadata.common.picture && metadata.common.picture.length > 0) {
+        try {
+          const picture = metadata.common.picture[0];
+          const blob = new Blob([picture.data], { type: picture.format });
+          // Convert to data URL for preview
+          const reader = new FileReader();
+          coverDataUrl = await new Promise((resolve) => {
+            reader.onload = (e) => resolve(e.target.result);
+            reader.readAsDataURL(blob);
+          });
+        } catch (coverError) {
+          console.warn('Could not extract cover:', coverError);
+        }
+      }
+
       // Update form with extracted metadata
       setFormData(prev => ({
         ...prev,
@@ -102,10 +119,22 @@ export default function SongManager() {
         performer: metadata.common.artist || '',
         author: metadata.common.composer || metadata.common.albumartist || '',
         duration: Math.floor(metadata.format.duration || 0),
-        isrc: metadata.common.isrc || '',
+        isrc: (metadata.common.isrc || '').substring(0, 12), // Limit to 12 chars
+        cover_image_url: coverDataUrl, // Preview data URL (will be uploaded on submit)
       }));
 
-      alert('Metadata extraída exitosamente del archivo de audio!');
+      // Store the original picture data for upload later
+      if (metadata.common.picture && metadata.common.picture.length > 0) {
+        const picture = metadata.common.picture[0];
+        const coverBlob = new Blob([picture.data], { type: picture.format });
+        const coverFile = new File([coverBlob], `cover.${picture.format.split('/')[1]}`, {
+          type: picture.format,
+        });
+        // Store in a ref or state for later upload
+        window.tempCoverFile = coverFile;
+      }
+
+      alert('Metadata y cover extraídos exitosamente!');
     } catch (error) {
       console.error('Error extracting metadata:', error);
       alert('No se pudo extraer metadata. Ingresa los datos manualmente.');
@@ -146,6 +175,7 @@ export default function SongManager() {
     setDialogOpen(false);
     setEditingSong(null);
     setAudioFile(null);
+    window.tempCoverFile = null; // Clean up temp cover file
   };
 
   const handleSubmit = async () => {
@@ -171,10 +201,29 @@ export default function SongManager() {
         // First create the song to get an ID
         const newSong = await createSong(finalFormData);
 
-        // If there's an audio file, upload it and update the song
+        // Upload audio and cover files
+        const updates = {};
+
+        // If there's an audio file, upload it
         if (audioFile) {
           const audioUrl = await uploadAudioFile(audioFile, newSong.id);
-          await updateSong(newSong.id, { file_url: audioUrl });
+          updates.file_url = audioUrl;
+        }
+
+        // If there's a cover extracted from MP3, upload it
+        if (window.tempCoverFile) {
+          try {
+            const coverUrl = await uploadCoverImage(window.tempCoverFile, newSong.id);
+            updates.cover_image_url = coverUrl;
+            window.tempCoverFile = null; // Clean up
+          } catch (coverError) {
+            console.warn('Could not upload cover:', coverError);
+          }
+        }
+
+        // Update song with file URLs
+        if (Object.keys(updates).length > 0) {
+          await updateSong(newSong.id, updates);
         }
       }
 
