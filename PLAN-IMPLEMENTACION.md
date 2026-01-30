@@ -1,397 +1,454 @@
 # 🎯 Plan de Implementación - AYAU Music Streaming
-## Stack Nuevo (Sin Migración de Datos)
 
-**Decisión**: Empezar desde cero con canciones nuevas y confiables
+## Estado Actual del Proyecto
+
+**Última actualización**: Enero 2026
 
 ---
 
-## 📊 Arquitectura Final
+## 📊 Progreso General
 
 ```
-┌─────────────────┐
-│  React + Vite   │  ← Frontend (cambios mínimos)
-│  Material UI    │
-└────────┬────────┘
-         │
-    ┌────▼─────┐
-    │  Vercel  │  ← Hosting
-    └────┬─────┘
-         │
-    ┌────▼──────────────────────────┐
-    │         Supabase              │
-    │  ┌──────────┐  ┌───────────┐ │
-    │  │PostgreSQL│  │Auth       │ │
-    │  │+ Schema  │  │(email/pwd)│ │
-    │  └──────────┘  └───────────┘ │
-    └───────────────────────────────┘
-         │
-    ┌────▼─────────┐
-    │ Cloudflare R2│  ← Nuevas 800 canciones
-    │ (audio files)│
-    └──────────────┘
+Fase 1: Infraestructura      ████████████████████ 100% ✅
+Fase 2: Configuración Local  ████████████████████ 100% ✅
+Fase 3: Admin Panel          ████████████████████ 100% ✅
+Fase 4: Frontend             ████████████████████ 100% ✅
+Fase 5: Testing              ████████████████████ 100% ✅
+Fase 6: Deployment           ░░░░░░░░░░░░░░░░░░░░   0% 🚀 SIGUIENTE
+
+Total:                       ████████████████░░░░  83%
 ```
 
 ---
 
-## 🚀 Fases de Implementación
+## 📋 Fases Completadas
 
-### **Fase 1: Setup de Infraestructura** (2-3 horas)
+### ✅ Fase 1: Infraestructura (COMPLETADA)
 
-#### 1.1 Supabase Setup
-- [x] Crear cuenta Supabase
-- [ ] Crear proyecto `ayau-music-streaming`
-- [ ] Ejecutar `supabase-schema-complete.sql` en SQL Editor
-- [ ] Obtener credenciales (URL + anon key)
-- [ ] Configurar Supabase Auth (email/password)
-- [ ] Crear primer usuario admin
+- ✅ Proyecto Supabase creado
+- ✅ Schema SQL ejecutado (`database/supabase-schema-reportes.sql`)
+- ✅ Supabase Auth configurado (email/password)
+- ✅ Supabase Storage configurado (reemplazó a Cloudflare R2)
+- ✅ Usuarios admin creados
+- ✅ Sistema de roles implementado (admin/manager/user)
 
-#### 1.2 Cloudflare R2 Setup
-- [ ] Crear cuenta Cloudflare
-- [ ] Crear bucket `ayau-music`
-- [ ] Configurar CORS para acceso público
-- [ ] Obtener credenciales (Access Key + Secret Key)
-- [ ] (Opcional) Configurar dominio personalizado
+### ✅ Fase 2: Configuración Local (COMPLETADA)
 
-#### 1.3 Vercel Setup
-- [ ] Crear cuenta Vercel
-- [ ] Conectar repositorio GitHub (opcional por ahora)
+- ✅ Dependencias instaladas:
+  - `@supabase/supabase-js`
+  - `react-dropzone`
+  - `music-metadata`
+  - Material-UI completo
+- ✅ Variables de entorno configuradas (`.env.local`)
+- ✅ Cliente Supabase creado ([src/lib/supabase.js](src/lib/supabase.js))
 
-**Duración**: 2-3 horas
+### ✅ Fase 3: Admin Panel (COMPLETADA)
+
+Funcionalidades implementadas:
+
+- ✅ **Dashboard** ([src/components/admin/AdminDashboard.jsx](src/components/admin/AdminDashboard.jsx))
+  - Estadísticas generales
+  - Gráficos de reproducción
+
+- ✅ **Gestión de Canciones** ([src/components/admin/SongManager.jsx](src/components/admin/SongManager.jsx))
+  - Upload individual con extracción automática de metadata (ID3 tags)
+  - **Bulk upload** de múltiples archivos
+  - Progreso en tiempo real
+  - Edición de metadata (título, artista, duración, ISRC)
+  - Asignación a múltiples playlists
+  - Eliminación de canciones
+
+- ✅ **Gestión de Playlists** ([src/components/admin/PlaylistManager.jsx](src/components/admin/PlaylistManager.jsx))
+  - Crear/editar/eliminar playlists
+  - Asignar canciones
+  - Ver conteo de canciones
+
+- ✅ **Gestión de Usuarios** ([src/components/admin/UserManager.jsx](src/components/admin/UserManager.jsx))
+  - Crear usuarios con email, nombre, contraseña y rol
+  - Editar roles de usuarios existentes
+  - Sistema de roles: admin, manager, user, client_user
+  - Permisos diferenciados por rol
+
+- ✅ **Analytics** ([src/components/admin/AnalyticsDashboard.jsx](src/components/admin/AnalyticsDashboard.jsx))
+  - Historial de reproducción
+  - Top canciones más reproducidas
+
+- ✅ **Sistema de Roles y Permisos**
+  - Admin: Acceso completo
+  - Manager: Gestión de playlists y canciones (no usuarios)
+  - User: Solo reproducción
+  - Políticas RLS implementadas
+
+### ✅ Fase 4: Frontend (COMPLETADA)
+
+- ✅ **Servicio API** ([src/services/supabase-api.js](src/services/supabase-api.js))
+  - `getUserPlaylists()` - Obtener playlists del usuario
+  - `getPlaylistSongs()` - Obtener canciones de una playlist
+  - `recordPlayHistory()` - Registrar segundos reproducidos
+  - `isAdmin()` / `isManagerOrAdmin()` - Verificar roles
+  - `createUser()` - Crear usuarios
+  - `getAllUsers()` - Listar usuarios (solo admins)
+
+- ✅ **Autenticación** ([src/components/Login.jsx](src/components/Login.jsx))
+  - Login con email/password
+  - Diseño AYAU branding (negro #000 + dorado #F4D03F)
+  - Manejo de errores
+
+- ✅ **Reproductor** ([src/components/MusicPlayer.jsx](src/components/MusicPlayer.jsx))
+  - Player de audio HTML5
+  - Tracking de segundos reproducidos
+  - Registro automático en `play_history`
+  - Controles play/pause/next/previous
+
+- ✅ **HomePage** ([src/pages/HomePage.jsx](src/pages/HomePage.jsx))
+  - Lista de playlists del usuario
+  - Acceso al admin panel (admins y managers)
+  - Player integrado
+
+### ✅ Fase 5: Testing (COMPLETADA)
+
+- ✅ Testing local completo
+  - Login/logout funciona
+  - Playlists se cargan correctamente
+  - Reproducción de audio funciona
+  - Tracking de reproducción registra en DB
+
+- ✅ Testing de permisos (RLS)
+  - Admins ven todos los usuarios
+  - Managers ven solo secciones permitidas
+  - Usuarios regulares solo ven sus playlists
+  - Sistema de roles funciona correctamente
+
+- ✅ Testing de funcionalidades
+  - Bulk upload de canciones funciona
+  - Creación de usuarios funciona
+  - Gestión de playlists funciona
+  - Sistema de permisos funciona
+
+- ✅ Build de producción
+  - `npm run build` ejecuta sin errores
+  - No hay warnings críticos
+  - Código limpio (console.logs removidos)
 
 ---
 
-### **Fase 2: Configuración Local** (1-2 horas)
+## 🚀 Fase 6: Deployment a Vercel (EN PROGRESO)
 
-#### 2.1 Instalar Dependencias
+### Pre-requisitos
 
-```bash
-npm install @supabase/supabase-js @supabase/auth-helpers-react
-npm install react-dropzone music-metadata  # Para admin panel
-```
+Antes de hacer deploy, verificar:
 
-#### 2.2 Configurar Variables de Entorno
+- [x] Build local funciona (`npm run build`)
+- [x] Variables de entorno documentadas
+- [x] Base de datos configurada en Supabase
+- [x] Storage configurado en Supabase
+- [x] Usuario admin creado
+- [ ] Repositorio en GitHub (opcional pero recomendado)
 
-Crear `.env.local`:
+### 6.1 Preparar Build de Producción
+
+#### Verificar Variables de Entorno
+
+Asegúrate de tener estas variables en `.env.local`:
+
 ```env
-# Supabase
 VITE_SUPABASE_URL=https://xxxxx.supabase.co
 VITE_SUPABASE_ANON_KEY=eyJhbGc...
-
-# Cloudflare R2 (solo para admin panel)
-VITE_R2_ACCOUNT_ID=tu-account-id
-VITE_R2_ACCESS_KEY=tu-access-key
-VITE_R2_SECRET_KEY=tu-secret-key
-VITE_R2_BUCKET=ayau-music
-VITE_R2_PUBLIC_URL=https://pub-xxxxx.r2.dev
 ```
 
-#### 2.3 Crear Cliente Supabase
-
-`src/lib/supabase.js`:
-```javascript
-import { createClient } from '@supabase/supabase-js'
-
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
-
-export const supabase = createClient(supabaseUrl, supabaseAnonKey)
-```
-
-**Duración**: 1-2 horas
-
----
-
-### **Fase 3: Admin Panel** (12-16 horas)
-
-#### 3.1 Estructura de Rutas
-
-```
-src/
-├── pages/
-│   ├── Home.jsx           # App actual (playlists + player)
-│   ├── Admin/
-│   │   ├── Dashboard.jsx  # Panel principal admin
-│   │   ├── Songs.jsx      # Gestión de canciones
-│   │   ├── Playlists.jsx  # Gestión de playlists
-│   │   └── Upload.jsx     # Subir canciones
-└── App.jsx                # Router
-```
-
-#### 3.2 Componente de Upload con Drag & Drop
-
-**Funcionalidades**:
-- ✅ Drag & drop de archivos MP3/WAV/FLAC
-- ✅ Extracción automática de metadata (ID3 tags)
-- ✅ Upload a R2
-- ✅ Guardado en Supabase
-- ✅ Preview de artwork
-- ✅ Edición manual de campos (ISRC, ISWC, IPI, Code)
-- ✅ Bulk upload (múltiples archivos)
-
-#### 3.3 Gestión de Playlists
-
-**Funcionalidades**:
-- ✅ Crear/editar/eliminar playlists
-- ✅ Drag & drop para reordenar canciones
-- ✅ Búsqueda de canciones para agregar
-- ✅ Upload de cover image para playlist
-
-#### 3.4 Importación desde CSV
-
-**Para completar metadata faltante**:
-- Upload CSV con: title, author, performer, isrc, iswc, ipi, code
-- Match por título
-- Actualizar registros en Supabase
-
-**Duración**: 12-16 horas
-
----
-
-### **Fase 4: Actualizar Frontend** (4-6 horas)
-
-#### 4.1 Crear Servicio de API
-
-`src/services/supabase-api.js`:
-```javascript
-import { supabase } from '../lib/supabase'
-
-// Obtener todas las playlists del usuario
-export const getUserPlaylists = async (userId) => {
-  const { data, error } = await supabase
-    .from('playlists')
-    .select(`
-      *,
-      playlist_permissions!inner(user_id)
-    `)
-    .eq('playlist_permissions.user_id', userId)
-
-  if (error) throw error
-  return data
-}
-
-// Obtener canciones de una playlist (con URLs firmadas)
-export const getPlaylistSongs = async (playlistId) => {
-  const { data, error } = await supabase
-    .from('playlist_songs')
-    .select(`
-      id,
-      position,
-      songs (*)
-    `)
-    .eq('playlist_id', playlistId)
-    .order('position')
-
-  if (error) throw error
-
-  // Transformar para el player
-  return data.map(item => ({
-    id: item.songs.id,
-    title: item.songs.title,
-    performer: item.songs.performer,
-    duration: item.songs.duration,
-    url: item.songs.file_url  // R2 public URL
-  }))
-}
-
-// Registrar reproducción (analytics)
-export const recordPlay = async (userId, songId, playlistId, duration) => {
-  const { error } = await supabase
-    .from('play_history')
-    .insert({
-      user_id: userId,
-      song_id: songId,
-      playlist_id: playlistId,
-      stream_duration: duration
-    })
-
-  if (error) console.error('Error recording play:', error)
-}
-```
-
-#### 4.2 Actualizar Autenticación
-
-**Reemplazar OIDC con Supabase Auth**:
-
-`src/components/Login.jsx`:
-```javascript
-import { useState } from 'react'
-import { supabase } from '../lib/supabase'
-
-export default function Login() {
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
-
-  const handleLogin = async (e) => {
-    e.preventDefault()
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password
-    })
-    if (error) alert(error.message)
-  }
-
-  return (
-    <form onSubmit={handleLogin}>
-      <input
-        type="email"
-        value={email}
-        onChange={(e) => setEmail(e.target.value)}
-        placeholder="Email"
-      />
-      <input
-        type="password"
-        value={password}
-        onChange={(e) => setPassword(e.target.value)}
-        placeholder="Password"
-      />
-      <button type="submit">Login</button>
-    </form>
-  )
-}
-```
-
-#### 4.3 Actualizar App.jsx
-
-**Cambios principales**:
-- Reemplazar `useAuth()` de OIDC con `supabase.auth.getSession()`
-- Usar `getUserPlaylists()` en vez de axios
-- Agregar listener de auth state
-
-#### 4.4 Actualizar PlaylistSidebar.jsx
-
-- Reemplazar axios con `getPlaylistSongs()`
-- Agregar `recordPlay()` cuando se reproduce una canción
-
-**Duración**: 4-6 horas
-
----
-
-### **Fase 5: Testing** (4-6 horas)
-
-#### 5.1 Testing Local
-- [ ] Login/logout funciona
-- [ ] Ver playlists del usuario
-- [ ] Ver canciones de una playlist
-- [ ] Reproducir audio desde R2
-- [ ] Admin panel: upload de canciones
-- [ ] Admin panel: crear playlists
-- [ ] Admin panel: asignar canciones a playlists
-- [ ] Analytics: verificar play_history se registra
-
-#### 5.2 Testing de Permisos (RLS)
-- [ ] Usuario normal solo ve sus playlists
-- [ ] Usuario normal NO puede crear playlists
-- [ ] Admin puede ver todas las playlists
-- [ ] Admin puede crear/editar/eliminar playlists y canciones
-
-#### 5.3 Testing de Performance
-- [ ] Playlists cargan rápido (< 1s)
-- [ ] Audio inicia reproducción rápido (< 2s)
-- [ ] Múltiples canciones se pueden reproducir seguidas
-
-**Duración**: 4-6 horas
-
----
-
-### **Fase 6: Deployment** (2-4 horas)
-
-#### 6.1 Preparar para Producción
+#### Test Local del Build
 
 ```bash
-# Build de producción
+# 1. Crear build de producción
 npm run build
 
-# Test del build localmente
+# 2. Previsualizar build localmente
 npm run preview
+
+# 3. Abrir http://localhost:4173 y verificar que todo funciona
 ```
 
-#### 6.2 Deploy a Vercel
+**Checklist de verificación**:
+- [ ] Login funciona
+- [ ] Playlists se cargan
+- [ ] Audio reproduce correctamente
+- [ ] Admin panel accesible
+- [ ] Bulk upload funciona
+- [ ] No hay errores en consola
 
-1. Push a GitHub
-2. Conectar repo en Vercel
-3. Configurar variables de entorno en Vercel
-4. Deploy automático
+### 6.2 Deploy a Vercel
 
-#### 6.3 Configurar Dominios (Opcional)
+#### Opción A: Deploy desde GitHub (Recomendado)
 
-- `ayauplay.com` → App principal (Vercel)
-- `admin.ayauplay.com` → Admin panel (Vercel con ruta /admin)
+1. **Push a GitHub**
 
-#### 6.4 Post-Deployment
+```bash
+# Si aún no tienes repo remoto
+git remote add origin https://github.com/tu-usuario/ayau-app.git
+git branch -M main
+git push -u origin main
+```
 
-- [ ] Verificar en producción
-- [ ] Crear usuario admin en producción
-- [ ] Subir canciones iniciales
-- [ ] Configurar analytics
+2. **Conectar en Vercel**
+   - Ir a [vercel.com](https://vercel.com)
+   - Click "Add New Project"
+   - Importar repositorio de GitHub
+   - Seleccionar `ayau-app`
 
-**Duración**: 2-4 horas
+3. **Configurar Variables de Entorno en Vercel**
+   - En el dashboard del proyecto → Settings → Environment Variables
+   - Agregar:
+     - `VITE_SUPABASE_URL` = tu URL de Supabase
+     - `VITE_SUPABASE_ANON_KEY` = tu anon key de Supabase
+
+4. **Deploy**
+   - Click "Deploy"
+   - Esperar ~2 minutos
+   - Vercel te dará una URL: `https://ayau-app.vercel.app`
+
+#### Opción B: Deploy con Vercel CLI
+
+```bash
+# 1. Instalar Vercel CLI
+npm i -g vercel
+
+# 2. Login
+vercel login
+
+# 3. Deploy
+vercel
+
+# 4. Configurar variables de entorno
+vercel env add VITE_SUPABASE_URL
+vercel env add VITE_SUPABASE_ANON_KEY
+
+# 5. Deploy a producción
+vercel --prod
+```
+
+### 6.3 Post-Deployment
+
+#### Verificar en Producción
+
+Abrir la URL de Vercel y verificar:
+
+- [ ] Página carga correctamente
+- [ ] Login funciona
+- [ ] Playlists se cargan
+- [ ] Audio reproduce desde Supabase Storage
+- [ ] Admin panel accesible
+- [ ] Crear usuario funciona
+- [ ] Bulk upload funciona
+- [ ] Tracking de reproducción funciona
+
+#### Crear Usuario Admin en Producción
+
+Si es la primera vez desplegando:
+
+1. Ir a Supabase Dashboard → Authentication
+2. Click "Add User"
+3. Ingresar:
+   - Email: tu_email@ejemplo.com
+   - Password: (contraseña segura)
+   - Auto Confirm User: ✅
+
+4. En SQL Editor:
+```sql
+-- Actualizar rol a admin
+UPDATE user_profiles
+SET role = 'admin'
+WHERE email = 'tu_email@ejemplo.com';
+
+-- Verificar
+SELECT id, full_name, email, role FROM user_profiles WHERE role = 'admin';
+```
+
+#### Configurar Dominio Personalizado (Opcional)
+
+Si tienes un dominio propio (ej: `ayauplay.com`):
+
+1. En Vercel → Project Settings → Domains
+2. Agregar dominio: `ayauplay.com`
+3. Configurar DNS según instrucciones de Vercel
+4. Esperar propagación (5-30 minutos)
+
+**Subdominio para admin (opcional)**:
+- `admin.ayauplay.com` → Mismo proyecto, ruta `/admin`
+
+### 6.4 Configuración de Supabase para Producción
+
+#### Actualizar URL Permitidas
+
+En Supabase Dashboard → Authentication → URL Configuration:
+
+1. **Site URL**: `https://ayau-app.vercel.app` (o tu dominio)
+2. **Redirect URLs**: Agregar:
+   - `https://ayau-app.vercel.app`
+   - `https://ayau-app.vercel.app/**`
+   - Si tienes dominio: `https://ayauplay.com/**`
+
+#### Verificar Políticas RLS
+
+Ejecutar en SQL Editor para verificar que todo está bien:
+
+```sql
+-- Verificar políticas
+SELECT tablename, policyname, cmd
+FROM pg_policies
+WHERE schemaname = 'public'
+ORDER BY tablename;
+
+-- Verificar funciones de seguridad
+SELECT proname FROM pg_proc
+WHERE proname IN ('is_admin', 'is_manager_or_admin');
+```
+
+### 6.5 Monitoreo y Mantenimiento
+
+#### Logs de Vercel
+
+- Ver logs: Vercel Dashboard → Project → Deployments → Click deployment → Functions
+- Logs en tiempo real: `vercel logs`
+
+#### Logs de Supabase
+
+- Supabase Dashboard → Logs
+- Filtrar por tabla: `play_history`, `songs`, `playlists`
+
+#### Backups
+
+Supabase hace backups automáticos, pero puedes hacer backups manuales:
+
+```sql
+-- Export de canciones (ejecutar en SQL Editor)
+COPY (SELECT * FROM songs) TO '/tmp/songs_backup.csv' WITH CSV HEADER;
+
+-- Export de playlists
+COPY (SELECT * FROM playlists) TO '/tmp/playlists_backup.csv' WITH CSV HEADER;
+```
 
 ---
 
-## 📋 Checklist Completo
+## 📊 Checklist Final de Deployment
 
-### Infraestructura
-- [ ] Proyecto Supabase creado
-- [ ] Schema SQL ejecutado
-- [ ] Bucket R2 creado y configurado
-- [ ] Variables de entorno configuradas
-
-### Código
-- [ ] Dependencias instaladas
-- [ ] Cliente Supabase creado
-- [ ] Servicio API implementado
-- [ ] Admin panel completo
-- [ ] Frontend actualizado (Auth + API calls)
-
-### Testing
-- [ ] Testing local completo
-- [ ] Testing de permisos (RLS)
-- [ ] Testing de performance
+### Pre-Deployment
+- [x] Build funciona localmente
+- [x] Variables de entorno documentadas
+- [x] Base de datos configurada
+- [x] Código limpio (sin console.logs de debug)
+- [ ] Repositorio en GitHub
 
 ### Deployment
-- [ ] Build de producción funcionando
-- [ ] Deploy a Vercel exitoso
-- [ ] Usuario admin creado en producción
-- [ ] Canciones iniciales subidas
+- [ ] Proyecto creado en Vercel
+- [ ] Variables de entorno configuradas en Vercel
+- [ ] Deploy exitoso
+- [ ] URL de producción funciona
+
+### Post-Deployment
+- [ ] Login funciona en producción
+- [ ] Usuario admin creado
+- [ ] Playlists cargan correctamente
+- [ ] Audio reproduce correctamente
+- [ ] Admin panel accesible
+- [ ] Bulk upload funciona
+- [ ] Tracking de reproducción funciona
+- [ ] URLs permitidas configuradas en Supabase
+
+### Opcional
+- [ ] Dominio personalizado configurado
+- [ ] DNS configurado
+- [ ] SSL/HTTPS activo (automático en Vercel)
+- [ ] Analytics de Vercel activo
 
 ---
 
-## 💰 Costos Mensuales
+## 💰 Costos en Producción
 
-| Servicio | Costo |
-|----------|-------|
-| Supabase Free Tier | $0 |
-| Cloudflare R2 (800 canciones ~4GB) | $0.60 storage + $0.50 requests = **$1-2** |
-| Vercel Free Tier | $0 |
-| **TOTAL** | **~$2/mes** |
+| Servicio | Plan | Costo |
+|----------|------|-------|
+| Supabase | Free Tier | $0/mes (500MB storage, 2GB bandwidth) |
+| Vercel | Hobby (Free) | $0/mes |
+| **TOTAL** | | **$0/mes** |
 
-**Ahorro vs AWS**: $50-200/mes → $2/mes = **98% ahorro** 🎉
+Para producción con más usuarios:
+- Supabase Pro: $25/mes (8GB storage, 100GB bandwidth)
+- Vercel Pro: $20/mes (más funciones serverless)
 
 ---
 
-## 🎯 Siguiente Paso: Fase 1
+## 🎯 Próximos Pasos
 
-Vamos a empezar con Supabase. Por favor:
+Después del deployment:
 
-### 1. Crear Proyecto Supabase
-1. Ve a [supabase.com](https://supabase.com)
-2. Crea cuenta
-3. Click "New Project"
-4. Configuración:
-   - **Name**: `ayau-music-streaming`
-   - **Password**: (genera una fuerte)
-   - **Region**: `US East (North Virginia)`
-   - **Plan**: Free
+1. **Subir canciones iniciales**
+   - Usar bulk upload para cargar el catálogo inicial
 
-### 2. Ejecutar Schema
-1. Una vez creado, ve a **SQL Editor**
-2. Click "New query"
-3. Copia el contenido de `supabase-schema-complete.sql`
-4. Ejecuta (Run)
+2. **Crear playlists**
+   - Organizar canciones en playlists temáticas
 
-### 3. Compartir Credenciales
-Cuando termines, compárteme:
-- Project URL
-- anon public key
+3. **Crear usuarios**
+   - Managers para curación de contenido
+   - Usuarios regulares para testing
 
-**¿Listo para empezar? 🚀**
+4. **Monitorear analytics**
+   - Revisar play_history
+   - Verificar que tracking funciona correctamente
+
+5. **Optimizaciones futuras** (opcional)
+   - Importación CSV de metadata
+   - Export de reportes de regalías
+   - Sistema multi-tenant (clientes y locales)
+   - Broadcasting centralizado
+
+---
+
+## 📚 Documentación Adicional
+
+- [README.md](README.md) - Guía completa del proyecto
+- [DATABASE-SETUP.md](DATABASE-SETUP.md) - Setup detallado de base de datos
+- [TRACKING-REPRODUCCION.md](TRACKING-REPRODUCCION.md) - Sistema de tracking
+
+---
+
+## 🆘 Troubleshooting de Deployment
+
+### Error: Build falla en Vercel
+
+**Causa**: Dependencias faltantes o errores de TypeScript
+
+**Solución**:
+```bash
+# Limpiar y reinstalar
+rm -rf node_modules package-lock.json
+npm install
+npm run build
+```
+
+### Error: "Invalid API key" en producción
+
+**Causa**: Variables de entorno no configuradas correctamente
+
+**Solución**:
+1. Verificar en Vercel → Settings → Environment Variables
+2. Redeploy: `vercel --prod`
+
+### Error: Audio no reproduce en producción
+
+**Causa**: Storage no configurado o URLs incorrectas
+
+**Solución**:
+1. Verificar bucket `audio-files` existe en Supabase Storage
+2. Verificar políticas de storage permiten lectura pública
+3. Verificar URLs en tabla `songs` son correctas
+
+### Error: Login funciona local pero no en producción
+
+**Causa**: URLs no permitidas en Supabase Auth
+
+**Solución**:
+1. Supabase → Authentication → URL Configuration
+2. Agregar URL de Vercel a redirect URLs
+
+---
+
+¿Listo para hacer el deployment? 🚀

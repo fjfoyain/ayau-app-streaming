@@ -1,72 +1,72 @@
-import { useState, useEffect } from 'react'
-import { supabase } from './lib/supabase'
+import { useState, useEffect } from "react";
+import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
+import { supabase } from "./lib/supabase";
+import Login from "./components/Login";
+import Loading from "./components/Loading";
+import HomePage from "./pages/HomePage";
+import AdminLayout from "./components/admin/AdminLayout";
+import AdminDashboard from "./components/admin/AdminDashboard";
+import PlaylistManager from "./components/admin/PlaylistManager";
+import SongManager from "./components/admin/SongManager";
+import UserManager from "./components/admin/UserManager";
+import AnalyticsDashboard from "./components/admin/AnalyticsDashboard";
+import ProtectedAdminRoute from "./components/admin/ProtectedAdminRoute";
+import { PlayerProvider } from "./context/PlayerContext";
 
-function App() {
-  const [loading, setLoading] = useState(true)
-  const [connected, setConnected] = useState(false)
+export default function App() {
+  const [session, setSession] = useState(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Probar conexión a Supabase
-    const testConnection = async () => {
-      try {
-        const { data, error } = await supabase.from('playlists').select('count')
-        if (error) throw error
-        setConnected(true)
-      } catch (error) {
-        console.error('Error connecting to Supabase:', error)
-        setConnected(false)
-      } finally {
-        setLoading(false)
-      }
-    }
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+      setLoading(false);
+    });
 
-    testConnection()
-  }, [])
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
 
   if (loading) {
-    return (
-      <div className="app">
-        <h1>AYAU Music Streaming</h1>
-        <p>Conectando a Supabase...</p>
-      </div>
-    )
+    return <Loading />;
+  }
+
+  if (!session) {
+    return <Login />;
   }
 
   return (
-    <div className="app">
-      <h1>🎵 AYAU Music Streaming</h1>
+    <PlayerProvider>
+      <Router>
+        <Routes>
+          {/* Public Routes (authenticated users) */}
+          <Route path="/" element={<HomePage session={session} />} />
 
-      <div className="status">
-        <h2>Estado de Conexión</h2>
-        {connected ? (
-          <p className="success">✅ Conectado a Supabase correctamente</p>
-        ) : (
-          <p className="error">❌ Error al conectar con Supabase</p>
-        )}
-      </div>
+          {/* Admin Routes (protected) */}
+          <Route
+            path="/admin"
+            element={
+              <ProtectedAdminRoute>
+                <AdminLayout />
+              </ProtectedAdminRoute>
+            }
+          >
+            <Route index element={<AdminDashboard />} />
+            <Route path="playlists" element={<PlaylistManager />} />
+            <Route path="songs" element={<SongManager />} />
+            <Route path="users" element={<UserManager />} />
+            <Route path="analytics" element={<AnalyticsDashboard />} />
+          </Route>
 
-      <div className="info">
-        <h2>Proyecto Configurado</h2>
-        <ul>
-          <li>✅ React 19 + Vite</li>
-          <li>✅ Supabase Client</li>
-          <li>✅ Variables de entorno</li>
-          <li>✅ Schema de base de datos</li>
-          <li>✅ Servicios de API</li>
-        </ul>
-      </div>
-
-      <div className="next-steps">
-        <h2>Próximos Pasos</h2>
-        <ol>
-          <li>Configurar Cloudflare R2 para audio</li>
-          <li>Crear Admin Panel</li>
-          <li>Actualizar Frontend con Auth</li>
-          <li>Implementar tracking de reproducción</li>
-        </ol>
-      </div>
-    </div>
-  )
+          {/* Catch all - redirect to home */}
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </Router>
+    </PlayerProvider>
+  );
 }
-
-export default App

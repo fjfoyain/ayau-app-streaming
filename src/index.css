@@ -1,82 +1,53 @@
-* {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
+@import "tailwindcss";
+
+:root {
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  line-height: 1.5;
+  font-weight: 400;
+
+  color-scheme: dark;
+  color: #F4D03F;
+  background-color: #000000;
+
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 body {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
-    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
-    sans-serif;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  margin: 0;
+  min-width: 320px;
   min-height: 100vh;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  padding: 20px;
+  background-color: #000000;
 }
 
-.app {
-  background: white;
-  border-radius: 20px;
-  padding: 40px;
-  max-width: 800px;
-  width: 100%;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+* {
+  box-sizing: border-box;
 }
 
-h1 {
-  color: #667eea;
-  margin-bottom: 30px;
-  font-size: 2.5rem;
-  text-align: center;
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
 }
 
-h2 {
-  color: #333;
-  margin: 20px 0 15px 0;
-  font-size: 1.5rem;
-  border-bottom: 2px solid #667eea;
-  padding-bottom: 10px;
+::-webkit-scrollbar-track {
+  background: #1a1a1a;
 }
 
-.status {
-  margin: 20px 0;
-  padding: 20px;
-  background: #f5f5f5;
-  border-radius: 10px;
+::-webkit-scrollbar-thumb {
+  background: #F4D03F;
+  border-radius: 5px;
 }
 
-.success {
-  color: #10b981;
-  font-weight: bold;
-  font-size: 1.1rem;
+::-webkit-scrollbar-thumb:hover {
+  background: #f5e05f;
 }
 
-.error {
-  color: #ef4444;
-  font-weight: bold;
-  font-size: 1.1rem;
-}
-
-.info ul, .next-steps ol {
-  margin-left: 20px;
-  line-height: 2;
-}
-
-.info li {
-  list-style-type: none;
-  font-size: 1.1rem;
-  color: #555;
-}
-
-.next-steps ol {
-  font-size: 1.1rem;
-  color: #555;
-}
-
-.next-steps li {
-  margin: 10px 0;
+@theme {
+  --color-ayau-gold: #F4D03F;
+  --color-ayau-gold-dark: #d4b42f;
+  --color-ayau-gold-light: #f5e05f;
+  --color-ayau-black: #000000;
 }
