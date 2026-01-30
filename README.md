@@ -116,6 +116,36 @@ WHERE id = 'id_del_usuario_creado';
 
 Abre la aplicación en `http://localhost:5173` y usa las credenciales del usuario admin creado.
 
+## 🎵 Características del Reproductor Mejorado
+
+### Visualizador de Espectro
+- Visualización en tiempo real del espectro de frecuencias
+- Barras de color dinámico (oro a naranja) que responden al audio
+- Renderizado optimizado con Device Pixel Ratio
+- Responsive y adapta a cambios de ventana
+
+### Resume Playback (Reanudar Reproducción)
+- Guarda automáticamente la posición de reproducción en `localStorage`
+- Al cargar la misma canción, continúa desde donde se pausó
+- Restaura posición después de 5 segundos reproducidos (evita ads)
+- Clave: `resume_<songId>`
+
+### Signed URLs con Auto-Renovación
+- Genera URLs firmadas temporales para Storage privado (TTL: 1 hora)
+- Caché en memoria para evitar regeneración innecesaria
+- Auto-renovación cada 50 minutos durante reproducción
+- Fallback a URLs públicas si bucket es público
+
+### Prefetch de Siguiente Canción
+- Pre-genera signed URL de la siguiente canción en la playlist
+- Reduce latencia al cambiar de canción
+- Carga metadata automáticamente
+
+### Cover Image Preload
+- Precarga imagen de portada antes de mostrar
+- Evita titileo/parpadeo al cambiar canción
+- Transición suave con opacity fade
+
 ## 📁 Estructura del Proyecto
 
 ```
@@ -131,16 +161,16 @@ ayau-app/
 │   │   │   ├── SongManager.jsx       # Gestión de canciones + bulk upload
 │   │   │   └── UserManager.jsx       # Gestión de usuarios
 │   │   ├── Login.jsx                 # Página de login
-│   │   ├── MusicPlayer.jsx           # Reproductor de audio
+│   │   ├── MusicPlayer.jsx           # Reproductor con visualizador
 │   │   └── PlaylistSidebar.jsx       # Sidebar con playlists
 │   ├── context/
-│   │   └── PlayerContext.jsx         # Estado global del reproductor
+│   │   └── PlayerContext.jsx         # Estado global + prefetch + resume
 │   ├── lib/
 │   │   └── supabase.js               # Cliente de Supabase
 │   ├── pages/
 │   │   └── HomePage.jsx              # Página principal
 │   ├── services/
-│   │   └── supabase-api.js           # Funciones de API
+│   │   └── supabase-api.js           # API + getSignedUrl helper
 │   ├── App.jsx                       # Rutas y App principal
 │   └── main.jsx                      # Entry point
 ├── database/

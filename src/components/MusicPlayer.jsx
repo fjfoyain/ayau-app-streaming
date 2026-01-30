@@ -28,13 +28,28 @@ export default function MusicPlayer() {
   const [totalSecondsPlayed, setTotalSecondsPlayed] = useState(0);
   const hasRecordedPlay = useRef(false);
 
+  const canvasRef = useRef(null);
+  const audioCtxRef = useRef(null);
+  const analyserRef = useRef(null);
+  const animationRef = useRef(null);
+
+  // Cover preload to avoid flicker
+  const [displayedCover, setDisplayedCover] = useState('/default-cover.png');
+  const pendingCoverRef = useRef(null);
+
   useEffect(() => {
     const updateTime = () => setCurrentTime(audio.currentTime);
-    const updateDuration = () => setDuration(audio.duration);
+    const updateDuration = () => setDuration(audio.duration || 0);
 
     const handlePlay = () => {
       setPlaybackStartTime(Date.now());
       hasRecordedPlay.current = false;
+      // Ensure AudioContext resumes on user gesture
+      try {
+        if (audioCtxRef.current && audioCtxRef.current.state === 'suspended') {
+          audioCtxRef.current.resume().catch(() => {});
+        }
+      } catch (e) {}
     };
 
     const handlePause = () => {
@@ -133,6 +148,143 @@ export default function MusicPlayer() {
     return state?.currentSong?.coverImage || '/default-cover.png';
   }, [state?.currentSong?.coverImage]);
 
+  // Preload cover and set with fade to avoid flicker
+  useEffect(() => {
+    if (!coverImageSrc) return;
+    pendingCoverRef.current = coverImageSrc;
+    const img = new Image();
+    img.src = coverImageSrc;
+    img.onload = () => {
+      if (pendingCoverRef.current === coverImageSrc) {
+        setDisplayedCover(coverImageSrc);
+      }
+    };
+  }, [coverImageSrc]);
+
+  // Setup visualizer with frequency spectrum (initialize ONCE)
+  useEffect(() => {
+    if (!canvasRef.current || !audio) return;
+    let mounted = true;
+    let resizeHandler = null;
+
+    const initVisualizer = async () => {
+      try {
+        // Set CORS for audio element
+        audio.crossOrigin = 'anonymous';
+
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+
+        // Create AudioContext only once
+        if (!audioCtxRef.current) {
+          audioCtxRef.current = new AudioContext();
+        }
+
+        const audioCtx = audioCtxRef.current;
+
+        // Resume context if suspended
+        if (audioCtx.state === 'suspended') {
+          await audioCtx.resume();
+        }
+
+        // Create analyser only once
+        if (!analyserRef.current) {
+          const analyser = audioCtx.createAnalyser();
+          analyser.fftSize = 256;
+          analyser.smoothingTimeConstant = 0.8;
+          analyserRef.current = analyser;
+
+          // Create MediaElementSource ONLY ONCE (this can only be called once per audio element)
+          try {
+            const source = audioCtx.createMediaElementSource(audio);
+            source.connect(analyser);
+            analyser.connect(audioCtx.destination);
+          } catch (e) {
+            console.error('Failed to create audio source:', e);
+            return;
+          }
+        }
+
+        const analyser = analyserRef.current;
+        const canvas = canvasRef.current;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return;
+
+        const bufferLength = analyser.frequencyBinCount;
+        const dataArray = new Uint8Array(bufferLength);
+
+        // Setup canvas size with proper DPR
+        const resize = () => {
+          if (!canvas || !canvas.parentElement) return;
+          const dpr = window.devicePixelRatio || 1;
+          const rect = canvas.parentElement.getBoundingClientRect();
+          canvas.width = rect.width * dpr;
+          canvas.height = 50 * dpr;
+          canvas.style.width = `${rect.width}px`;
+          canvas.style.height = '50px';
+          ctx.scale(dpr, dpr);
+        };
+
+        resize();
+        resizeHandler = resize;
+        window.addEventListener('resize', resizeHandler);
+
+        // Animation loop
+        const draw = () => {
+          if (!mounted) return;
+          animationRef.current = requestAnimationFrame(draw);
+
+          analyser.getByteFrequencyData(dataArray);
+
+          // Clear canvas with black background
+          ctx.clearRect(0, 0, canvas.width, canvas.height);
+          ctx.fillStyle = '#000';
+          ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+          // Draw spectrum bars
+          const displayWidth = canvas.width / (window.devicePixelRatio || 1);
+          const displayHeight = canvas.height / (window.devicePixelRatio || 1);
+          const barWidth = (displayWidth / bufferLength) * 2.5;
+          let x = 0;
+
+          for (let i = 0; i < bufferLength; i++) {
+            const barHeight = (dataArray[i] / 255) * displayHeight;
+
+            // Gold to orange gradient
+            const hue = 40 + (i / bufferLength) * 10; // 40 = gold, 50 = orange
+            ctx.fillStyle = `hsl(${hue}, 100%, 50%)`;
+
+            ctx.fillRect(
+              x,
+              displayHeight - barHeight,
+              barWidth - 1,
+              barHeight
+            );
+
+            x += barWidth;
+          }
+        };
+
+        draw();
+
+      } catch (e) {
+        console.error('Visualizer init failed:', e);
+      }
+    };
+
+    initVisualizer();
+
+    return () => {
+      mounted = false;
+      if (animationRef.current) {
+        cancelAnimationFrame(animationRef.current);
+        animationRef.current = null;
+      }
+      if (resizeHandler) {
+        window.removeEventListener('resize', resizeHandler);
+      }
+    };
+  }, []); // Only run once on mount
+
   const TinyText = styled(Typography)({
     fontSize: "0.75rem",
     color: "#F4D03F",
@@ -153,6 +305,8 @@ export default function MusicPlayer() {
       width: "100%",
       height: "100%",
       objectFit: "cover",
+      transition: 'opacity 240ms ease',
+      opacity: 1,
     },
   });
 
@@ -193,7 +347,7 @@ export default function MusicPlayer() {
       <div className="flex justify-between items-center px-6 lg:px-10 py-4">
         <Box className="w-1/4 lg:w-1/4" sx={{ display: "flex", alignItems: "center", gap: 2 }}>
           <CoverImage>
-            <img alt="album cover" src={coverImageSrc} />
+            <img alt="album cover" src={displayedCover} />
           </CoverImage>
           <Box className="min-w-0 flex-1">
             <Typography noWrap fontWeight="bold" sx={{ color: '#F4D03F', fontSize: '1.1rem' }}>
@@ -206,6 +360,19 @@ export default function MusicPlayer() {
         </Box>
 
         <Box className="flex flex-col items-center w-2/4">
+          <Box sx={{ width: '70%', mb: 1 }}>
+            <canvas 
+              ref={canvasRef} 
+              style={{ 
+                width: '100%', 
+                height: 50, 
+                display: 'block',
+                backgroundColor: '#1a1a1a',
+                borderRadius: '4px',
+                border: '1px solid #F4D03F33'
+              }} 
+            />
+          </Box>
           <Box sx={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 1 }}>
             <IconButton
               aria-label="previous song"

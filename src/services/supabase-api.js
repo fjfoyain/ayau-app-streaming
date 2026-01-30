@@ -570,3 +570,20 @@ export const getSongPlaylists = async (songId) => {
   if (error) throw error
   return data.map(item => item.playlists)
 }
+/**
+ * Obtener signed URL (temporal) para un archivo en Storage
+ * `filePath` expected format: "bucket/path/to/file.ext" or "path/to/file.ext" (if no bucket provided, assumes `songs`)
+ */
+export const getSignedUrl = async (filePath, expires = 3600) => {
+  if (!filePath) throw new Error('filePath required')
+  const parts = filePath.split('/')
+  const bucket = parts.length > 1 ? parts[0] : 'songs'
+  const path = parts.length > 1 ? parts.slice(1).join('/') : filePath
+
+  const { data, error } = await supabase.storage.from(bucket).createSignedUrl(path, expires)
+  if (error) {
+    console.error('Error creating signed URL:', error)
+    throw error
+  }
+  return data.signedUrl
+}

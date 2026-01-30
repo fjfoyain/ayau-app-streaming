@@ -14,9 +14,9 @@ Fase 2: Configuración Local  ████████████████�
 Fase 3: Admin Panel          ████████████████████ 100% ✅
 Fase 4: Frontend             ████████████████████ 100% ✅
 Fase 5: Testing              ████████████████████ 100% ✅
-Fase 6: Deployment           ░░░░░░░░░░░░░░░░░░░░   0% 🚀 SIGUIENTE
+Fase 6: Deployment           ████████████████████ 100% ✅
 
-Total:                       ████████████████░░░░  83%
+Total:                       ████████████████████ 100% 🎉
 ```
 
 ---
@@ -88,17 +88,27 @@ Funcionalidades implementadas:
   - `isAdmin()` / `isManagerOrAdmin()` - Verificar roles
   - `createUser()` - Crear usuarios
   - `getAllUsers()` - Listar usuarios (solo admins)
+  - `getSignedUrl()` - Generar URLs firmadas para Storage privado
 
 - ✅ **Autenticación** ([src/components/Login.jsx](src/components/Login.jsx))
   - Login con email/password
   - Diseño AYAU branding (negro #000 + dorado #F4D03F)
   - Manejo de errores
 
-- ✅ **Reproductor** ([src/components/MusicPlayer.jsx](src/components/MusicPlayer.jsx))
+- ✅ **Reproductor Mejorado** ([src/components/MusicPlayer.jsx](src/components/MusicPlayer.jsx))
   - Player de audio HTML5
+  - **Visualizador de espectro** (barras dinámicas con gradiente de color)
   - Tracking de segundos reproducidos
   - Registro automático en `play_history`
   - Controles play/pause/next/previous
+  - Preload de cover image (sin titileo)
+
+- ✅ **Reproductor Context** ([src/context/PlayerContext.jsx](src/context/PlayerContext.jsx))
+  - **Resume playback:** Guarda posición en localStorage
+  - **Prefetch:** Pre-genera signed URL de siguiente canción
+  - **Auto-renovación de signed URLs:** Cada 50 minutos durante reproducción
+  - Caché en memoria de URLs firmadas (TTL: 1 hora)
+  - Soporte para URLs públicas y privadas
 
 - ✅ **HomePage** ([src/pages/HomePage.jsx](src/pages/HomePage.jsx))
   - Lista de playlists del usuario
@@ -205,6 +215,7 @@ git push -u origin main
    - Click "Deploy"
    - Esperar ~2 minutos
    - Vercel te dará una URL: `https://ayau-app.vercel.app`
+   - Subdominio configurado: `https://play.ayaumusic.com` (apuntado a Vercel)
 
 #### Opción B: Deploy con Vercel CLI
 
@@ -336,13 +347,13 @@ COPY (SELECT * FROM playlists) TO '/tmp/playlists_backup.csv' WITH CSV HEADER;
 - [x] Variables de entorno documentadas
 - [x] Base de datos configurada
 - [x] Código limpio (sin console.logs de debug)
-- [ ] Repositorio en GitHub
+- [x] Repositorio en GitHub (https://github.com/fjfoyain/ayau-app-streaming)
 
 ### Deployment
-- [ ] Proyecto creado en Vercel
-- [ ] Variables de entorno configuradas en Vercel
-- [ ] Deploy exitoso
-- [ ] URL de producción funciona
+- [x] Proyecto creado en Vercel
+- [x] Variables de entorno configuradas en Vercel
+- [x] Deploy exitoso
+- [x] URL de producción funciona
 
 ### Post-Deployment
 - [ ] Login funciona en producción
@@ -351,8 +362,9 @@ COPY (SELECT * FROM playlists) TO '/tmp/playlists_backup.csv' WITH CSV HEADER;
 - [ ] Audio reproduce correctamente
 - [ ] Admin panel accesible
 - [ ] Bulk upload funciona
-- [ ] Tracking de reproducción funciona
-- [ ] URLs permitidas configuradas en Supabase
+ - [ ] Tracking de reproducción funciona
+ - [ ] URLs permitidas configuradas en Supabase
+ - [x] Subdominio `play.ayaumusic.com` configurado y funcionando
 
 ### Opcional
 - [ ] Dominio personalizado configurado
@@ -376,29 +388,103 @@ Para producción con más usuarios:
 
 ---
 
-## 🎯 Próximos Pasos
+## 🎉 Deployment Completado
 
-Después del deployment:
+**Repositorio**: https://github.com/fjfoyain/ayau-app-streaming
+**Status**: ✅ Deployed to Vercel
 
-1. **Subir canciones iniciales**
-   - Usar bulk upload para cargar el catálogo inicial
+---
 
-2. **Crear playlists**
-   - Organizar canciones en playlists temáticas
+## 📋 Checklist de Post-Deployment
 
-3. **Crear usuarios**
+### Configuración Inicial en Producción
+
+1. **Configurar URLs en Supabase Authentication** ⚠️ IMPORTANTE
+   - Ir a Supabase Dashboard → Authentication → URL Configuration
+   - Agregar tu URL de Vercel (ej: `https://ayau-app-streaming.vercel.app`)
+   - Redirect URLs: Agregar `https://tu-app.vercel.app/**`
+
+2. **Verificar que tienes un usuario admin**
+   - En Supabase Dashboard → Authentication, verificar que existe un usuario
+   - En SQL Editor, verificar: `SELECT * FROM user_profiles WHERE role = 'admin';`
+   - Si no existe, crear uno siguiendo la sección "Crear Usuario Admin en Producción"
+
+3. **Probar la aplicación en producción**
+   - [ ] Abrir la URL de Vercel
+   - [ ] Login funciona correctamente
+   - [ ] Acceder al Admin Panel
+   - [ ] Ver que las playlists se cargan (aunque estén vacías)
+
+### Cargar Contenido Inicial
+
+4. **Subir canciones iniciales**
+   - Ir a Admin Panel → Canciones
+   - Usar "Carga Bulk" para subir múltiples archivos MP3
+   - El sistema extraerá metadata automáticamente
+
+5. **Crear playlists**
+   - Ir a Admin Panel → Playlists
+   - Crear playlists temáticas
+   - Asignar canciones a cada playlist
+
+6. **Crear usuarios adicionales** (opcional)
    - Managers para curación de contenido
    - Usuarios regulares para testing
 
-4. **Monitorear analytics**
-   - Revisar play_history
-   - Verificar que tracking funciona correctamente
+### Verificación Final
 
-5. **Optimizaciones futuras** (opcional)
-   - Importación CSV de metadata
-   - Export de reportes de regalías
+7. **Probar reproducción**
+   - [ ] Seleccionar una playlist
+   - [ ] Reproducir una canción
+   - [ ] Verificar que el audio se reproduce correctamente
+   - [ ] Verificar en Supabase que se registra en `play_history`
+
+8. **Probar Analytics**
+   - Ir a Admin Panel → Analytics
+   - Verificar que aparecen las reproducciones
+
+---
+
+## 🎯 Próximos Pasos (Uso Regular)
+
+Ahora que la aplicación está en producción:
+
+1. **Gestión de Contenido**
+   - Subir catálogo completo de canciones
+   - Organizar en playlists por género, mood, etc.
+   - Mantener metadata actualizada (ISRC, artistas, etc.)
+
+2. **Gestión de Usuarios**
+   - Crear cuentas para managers (curación de contenido)
+   - Crear cuentas para usuarios regulares
+   - Asignar permisos según necesidad
+
+3. **Monitoreo**
+   - Revisar analytics semanalmente
+   - Verificar play_history para reportes de regalías
+   - Monitorear uso de storage en Supabase
+
+4. **Optimizaciones Futuras** (opcional)
+
+   - **Nota:** El subdominio `play.ayaumusic.com` está activo y apunta a Vercel. Con esto en producción recomendamos lanzar con la configuración actual y evaluar optimizaciones según uso.
+
+   - **Recomendación de despliegue inicial:** Mantener `Supabase Storage` + CDN (lectura pública o URLs firmadas según necesidad). Esto cubre reproducción on‑demand con soporte de range requests y caché.
+
+   - **Cuándo considerar Cloudflare R2 / S3-like storage:** migrar si necesitas mayor rendimiento, menor latencia global o modelos de coste distintos; útil cuando el catálogo y el tráfico crecen y quieres separar almacenamiento de la base de datos.
+
+   - **Broadcasting / Live streaming:** No es necesario para audio on‑demand. Si planeas transmisiones en vivo, añadirás una canalización RTMP → HLS (o usar servicios como Cloudflare Stream). Es una funcionalidad separada con requisitos operativos y de costos.
+
+   - **Mejoras Implementadas (Enero 2026):**
+     - ✅ Visualizador de espectro en tiempo real
+     - ✅ Resume playback (guardar/restaurar posición)
+     - ✅ Signed URLs con auto-renovación
+     - ✅ Prefetch de siguiente canción
+     - ✅ Preload de cover image (sin titileo)
+
+   - Importación CSV de metadata (pendiente)
+   - Export de reportes de regalías (pendiente)
    - Sistema multi-tenant (clientes y locales)
-   - Broadcasting centralizado
+   - Dominio personalizado (ej: music.ayau.edu.gt)
 
 ---
 
