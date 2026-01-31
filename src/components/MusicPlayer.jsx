@@ -181,137 +181,121 @@ export default function MusicPlayer() {
     };
   }, [coverImageSrc]);
 
-  // Setup visualizer with frequency spectrum
+  // Audio visualizer - frequency bars
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas || !audio) return;
 
-    let mounted = true;
     let animationId = null;
+    let cleanupResize = null;
 
-    const initVisualizer = () => {
+    const setupVisualizer = () => {
       try {
-        const AudioContext = window.AudioContext || window.webkitAudioContext;
-
-        // Create AudioContext only once
+        // Create AudioContext once
         if (!audioCtxRef.current) {
+          const AudioContext = window.AudioContext || window.webkitAudioContext;
           audioCtxRef.current = new AudioContext();
         }
 
         const audioCtx = audioCtxRef.current;
 
-        // Create analyser and connect audio source only once
+        // Create and connect analyser only once per audio element
         if (!analyserRef.current) {
-          const analyser = audioCtx.createAnalyser();
-          analyser.fftSize = 128; // Reduced for better performance
-          analyser.smoothingTimeConstant = 0.85;
-
           try {
+            const analyser = audioCtx.createAnalyser();
+            analyser.fftSize = 256;
+            analyser.smoothingTimeConstant = 0.8;
+
             const source = audioCtx.createMediaElementSource(audio);
             source.connect(analyser);
             analyser.connect(audioCtx.destination);
+
             analyserRef.current = analyser;
           } catch (e) {
-            console.warn('Could not create audio source (may already exist):', e);
-            return;
+            // MediaElementSource already exists - this is expected on hot reload
+            if (!analyserRef.current) {
+              console.warn('Could not create audio source:', e.message);
+              return;
+            }
           }
         }
 
         const analyser = analyserRef.current;
-        const ctx = canvas.getContext('2d');
-        if (!ctx) return;
+        if (!analyser) return;
 
         const bufferLength = analyser.frequencyBinCount;
         const dataArray = new Uint8Array(bufferLength);
 
-        // Setup canvas with proper size
-        const setupCanvas = () => {
-          const parent = canvas.parentElement;
-          if (!parent) return;
+        // Canvas setup
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return;
 
-          const rect = parent.getBoundingClientRect();
-          const dpr = window.devicePixelRatio || 1;
-
-          canvas.width = rect.width * dpr;
-          canvas.height = 50 * dpr;
-          canvas.style.width = `${rect.width}px`;
-          canvas.style.height = '50px';
+        const resize = () => {
+          const rect = canvas.parentElement?.getBoundingClientRect();
+          if (rect) {
+            canvas.width = rect.width;
+            canvas.height = 50;
+          }
         };
-
-        setupCanvas();
-        window.addEventListener('resize', setupCanvas);
+        resize();
+        window.addEventListener('resize', resize);
+        cleanupResize = () => window.removeEventListener('resize', resize);
 
         // Animation loop
         const draw = () => {
-          if (!mounted) return;
-
           animationId = requestAnimationFrame(draw);
 
-          // Resume AudioContext if needed
+          // Resume AudioContext if suspended
           if (audioCtx.state === 'suspended') {
-            audioCtx.resume();
+            audioCtx.resume().catch(() => {});
           }
 
           // Get frequency data
           analyser.getByteFrequencyData(dataArray);
 
           // Clear canvas
-          ctx.fillStyle = '#000';
+          ctx.fillStyle = '#1a1a1a';
           ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-          // Calculate bar dimensions
-          const dpr = window.devicePixelRatio || 1;
-          const width = canvas.width / dpr;
-          const height = canvas.height / dpr;
-          const barCount = 40; // Fixed number of bars for consistency
-          const barWidth = (width / barCount) * 0.8;
-          const gap = (width / barCount) * 0.2;
+          // Draw frequency bars
+          const barCount = 32;
+          const barWidth = (canvas.width / barCount) * 0.8;
+          const gap = (canvas.width / barCount) * 0.2;
 
-          // Draw bars
           for (let i = 0; i < barCount; i++) {
-            // Sample from frequency data (spread across available data)
-            const dataIndex = Math.floor((i / barCount) * bufferLength);
-            const value = dataArray[dataIndex] || 0;
-            const barHeight = (value / 255) * height;
-
-            // Calculate position
+            const index = Math.floor((i * bufferLength) / barCount);
+            const value = dataArray[index] || 0;
+            const barHeight = (value / 255) * canvas.height * 0.9;
             const x = i * (barWidth + gap);
-            const y = height - barHeight;
+            const y = canvas.height - barHeight;
 
-            // Draw bar with gradient
-            const gradient = ctx.createLinearGradient(0, y, 0, height);
+            // Create gradient for each bar
+            const gradient = ctx.createLinearGradient(0, y, 0, canvas.height);
             gradient.addColorStop(0, '#F4D03F');
             gradient.addColorStop(1, '#FFD700');
 
             ctx.fillStyle = gradient;
-            ctx.fillRect(x * dpr, y * dpr, barWidth * dpr, barHeight * dpr);
+            ctx.fillRect(x, y, barWidth, barHeight);
           }
         };
 
         draw();
-
-        return () => {
-          mounted = false;
-          if (animationId) {
-            cancelAnimationFrame(animationId);
-          }
-          window.removeEventListener('resize', setupCanvas);
-        };
-
-      } catch (e) {
-        console.error('Visualizer setup failed:', e);
+      } catch (err) {
+        console.error('Visualizer setup error:', err);
       }
     };
 
-    initVisualizer();
+    setupVisualizer();
 
     return () => {
-      mounted = false;
       if (animationId) {
         cancelAnimationFrame(animationId);
       }
+      if (cleanupResize) {
+        cleanupResize();
+      }
     };
-  }, [audio]); // Re-initialize if audio element changes
+  }, [audio]);
 
   const TinyText = styled(Typography)({
     fontSize: "0.75rem",
