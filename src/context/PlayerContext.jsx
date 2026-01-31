@@ -8,7 +8,7 @@ const initialState = {
   audio: (() => {
     const audio = new Audio();
     audio.volume = 0.5;
-    audio.preload = 'metadata';
+    audio.preload = 'none'; // Changed to 'none' to prevent 404 on empty src
     return audio;
   })(),
 };
@@ -98,8 +98,14 @@ export const PlayerProvider = ({ children }) => {
 
         // Pause, set source and play
         audio.pause();
-        audio.src = url;
-        audio.load();
+        if (url && url.startsWith('http')) {
+          audio.src = url;
+          audio.preload = 'metadata'; // Enable preload only when we have a valid URL
+          audio.load();
+        } else {
+          console.error('Invalid audio URL:', url);
+          return;
+        }
 
         // Apply resume position ONLY if NOT switching songs (pause/resume or page reload)
         const onLoaded = () => {

@@ -34,16 +34,10 @@ export default function PlaylistSidebar({ playlist, onClose }) {
 
   const handlePlay = (e, song, index) => {
     if (state.currentSong?.id === song.id) {
-      if (!state.audio.src || state.audio.src !== song.url) {
-        dispatch({
-          type: "PLAY_SONG",
-          payload: { ...song, url: song.url },
-          playlistInfo: { playlist: songs, songIndex: index }
-        });
-      } else {
-        dispatch({ type: "TOGGLE_PLAY_PAUSE" });
-      }
+      // Same song - just toggle play/pause
+      dispatch({ type: "TOGGLE_PLAY_PAUSE" });
     } else {
+      // Different song - load and play
       dispatch({
         type: "PLAY_SONG",
         payload: { ...song, url: song.url },

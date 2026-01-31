@@ -463,6 +463,17 @@ export default function SongManager() {
     });
     setUploading(false);
 
+    // Show completion message
+    const successCount = results.success.length;
+    const failedCount = results.failed.length;
+    if (successCount > 0 && failedCount === 0) {
+      alert(`✓ Carga completada exitosamente!\n${successCount} canciones subidas correctamente.`);
+    } else if (successCount > 0 && failedCount > 0) {
+      alert(`Carga completada con algunos errores:\n✓ ${successCount} exitosas\n✗ ${failedCount} fallidas\n\nRevisa los detalles abajo.`);
+    } else if (failedCount > 0) {
+      alert(`✗ Error: Todas las cargas fallaron (${failedCount} archivos)\n\nRevisa los detalles abajo.`);
+    }
+
     // Refresh song list
     fetchData();
   };

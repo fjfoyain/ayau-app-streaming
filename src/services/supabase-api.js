@@ -18,7 +18,29 @@ export const getUserPlaylists = async () => {
     throw error;
   }
 
-  return data;
+  // Convert playlist cover images to signed URLs
+  const playlistsWithSignedCovers = await Promise.all(
+    data.map(async (playlist) => {
+      let coverUrl = playlist.cover_image_url;
+
+      // Convert cover to signed URL if it's a storage path (not http/https)
+      if (coverUrl && !/^https?:\/\//i.test(coverUrl)) {
+        try {
+          coverUrl = await getSignedUrl(coverUrl, 3600);
+        } catch (err) {
+          console.warn(`Failed to get signed URL for playlist cover ${coverUrl}:`, err);
+          coverUrl = null; // Fallback to no cover
+        }
+      }
+
+      return {
+        ...playlist,
+        cover_image_url: coverUrl
+      };
+    })
+  );
+
+  return playlistsWithSignedCovers;
 }
 
 /**
@@ -37,18 +59,36 @@ export const getPlaylistSongs = async (playlistId) => {
 
   if (error) throw error
 
-  // Transformar para el player
-  return data.map(item => ({
-    id: item.songs.id,
-    title: item.songs.title,
-    performer: item.songs.performer,
-    author: item.songs.author,
-    duration: item.songs.duration,
-    url: item.songs.file_url,
-    coverImage: item.songs.cover_image_url,
-    isrc: item.songs.isrc,
-    playlistId: playlistId
-  }))
+  // Transform for player and convert cover images to signed URLs
+  const songsWithSignedCovers = await Promise.all(
+    data.map(async (item) => {
+      let coverUrl = item.songs.cover_image_url;
+
+      // Convert cover to signed URL if it's a storage path (not http/https)
+      if (coverUrl && !/^https?:\/\//i.test(coverUrl)) {
+        try {
+          coverUrl = await getSignedUrl(coverUrl, 3600);
+        } catch (err) {
+          console.warn(`Failed to get signed URL for cover ${coverUrl}:`, err);
+          coverUrl = null; // Fallback to no cover
+        }
+      }
+
+      return {
+        id: item.songs.id,
+        title: item.songs.title,
+        performer: item.songs.performer,
+        author: item.songs.author,
+        duration: item.songs.duration,
+        url: item.songs.file_url,
+        coverImage: coverUrl,
+        isrc: item.songs.isrc,
+        playlistId: playlistId
+      };
+    })
+  );
+
+  return songsWithSignedCovers;
 }
 
 /**
@@ -234,7 +274,30 @@ export const getAllSongs = async () => {
     .order('title')
 
   if (error) throw error
-  return data
+
+  // Convert song cover images to signed URLs
+  const songsWithSignedCovers = await Promise.all(
+    data.map(async (song) => {
+      let coverUrl = song.cover_image_url;
+
+      // Convert cover to signed URL if it's a storage path (not http/https)
+      if (coverUrl && !/^https?:\/\//i.test(coverUrl)) {
+        try {
+          coverUrl = await getSignedUrl(coverUrl, 3600);
+        } catch (err) {
+          console.warn(`Failed to get signed URL for song cover ${coverUrl}:`, err);
+          coverUrl = null; // Fallback to no cover
+        }
+      }
+
+      return {
+        ...song,
+        cover_image_url: coverUrl
+      };
+    })
+  );
+
+  return songsWithSignedCovers;
 }
 
 /**
