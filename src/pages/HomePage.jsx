@@ -63,6 +63,14 @@ export default function HomePage({ session }) {
   };
 
   const handleLogout = async () => {
+    // Stop audio and clear player state before logout
+    if (state.audio) {
+      state.audio.pause();
+      state.audio.currentTime = 0;
+      state.audio.src = '';
+    }
+    dispatch({ type: "SET_CURRENT_SONG", payload: null });
+
     await supabase.auth.signOut();
     setDropdownOpen(false);
   };

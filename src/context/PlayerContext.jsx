@@ -1,5 +1,6 @@
 import { createContext, useReducer, useContext, useEffect, useRef } from "react";
 import { getSignedUrl } from '../services/supabase-api';
+import { supabase } from '../lib/supabase';
 
 const initialState = {
   currentSong: null,
@@ -230,6 +231,34 @@ export const PlayerProvider = ({ children }) => {
       if (saveTimer.current) clearTimeout(saveTimer.current);
     };
   }, [state.currentSong, state.audio]);
+
+  // Listen for auth state changes and stop audio on logout
+  useEffect(() => {
+    const { data: authListener } = supabase.auth.onAuthStateChange((event) => {
+      if (event === 'SIGNED_OUT') {
+        // Stop and clear audio completely
+        const audio = state.audio;
+        audio.pause();
+        audio.currentTime = 0;
+        audio.src = '';
+
+        // Clear player state
+        dispatch({ type: "SET_CURRENT_SONG", payload: null });
+
+        // Clear localStorage
+        sessionSongIdRef.current = null;
+        Object.keys(localStorage).forEach(key => {
+          if (key.startsWith('resume_')) {
+            localStorage.removeItem(key);
+          }
+        });
+      }
+    });
+
+    return () => {
+      authListener?.subscription.unsubscribe();
+    };
+  }, [state.audio]);
 
   return (
     <PlayerContext.Provider value={{ state, dispatch }}>
