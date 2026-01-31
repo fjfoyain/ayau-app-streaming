@@ -31,7 +31,6 @@ export default function MusicPlayer() {
   const canvasRef = useRef(null);
   const audioCtxRef = useRef(null);
   const analyserRef = useRef(null);
-  const animationRef = useRef(null);
 
   // Default cover as SVG data URI (avoid 404 on missing file)
   const defaultCover = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Crect width='300' height='300' fill='%23000'/%3E%3Ctext x='150' y='150' font-family='Arial' font-size='60' fill='%23F4D03F' text-anchor='middle' dominant-baseline='middle'%3E%E2%99%AB%3C/text%3E%3C/svg%3E";
@@ -182,13 +181,15 @@ export default function MusicPlayer() {
     };
   }, [coverImageSrc]);
 
-  // Setup visualizer with frequency spectrum (initialize ONCE)
+  // Setup visualizer with frequency spectrum
   useEffect(() => {
-    if (!canvasRef.current || !audio) return;
-    let mounted = true;
-    let resizeHandler = null;
+    const canvas = canvasRef.current;
+    if (!canvas || !audio) return;
 
-    const initVisualizer = async () => {
+    let mounted = true;
+    let animationId = null;
+
+    const initVisualizer = () => {
       try {
         const AudioContext = window.AudioContext || window.webkitAudioContext;
 
@@ -199,104 +200,106 @@ export default function MusicPlayer() {
 
         const audioCtx = audioCtxRef.current;
 
-        // Create analyser only once
+        // Create analyser and connect audio source only once
         if (!analyserRef.current) {
           const analyser = audioCtx.createAnalyser();
-          analyser.fftSize = 256;
-          analyser.smoothingTimeConstant = 0.8;
-          analyserRef.current = analyser;
+          analyser.fftSize = 128; // Reduced for better performance
+          analyser.smoothingTimeConstant = 0.85;
 
-          // Create MediaElementSource ONLY ONCE (this can only be called once per audio element)
           try {
             const source = audioCtx.createMediaElementSource(audio);
             source.connect(analyser);
             analyser.connect(audioCtx.destination);
+            analyserRef.current = analyser;
           } catch (e) {
-            console.error('Failed to create audio source:', e);
+            console.warn('Could not create audio source (may already exist):', e);
             return;
           }
         }
 
         const analyser = analyserRef.current;
-        const canvas = canvasRef.current;
         const ctx = canvas.getContext('2d');
         if (!ctx) return;
 
         const bufferLength = analyser.frequencyBinCount;
         const dataArray = new Uint8Array(bufferLength);
 
-        // Setup canvas size with proper DPR
-        const resize = () => {
-          if (!canvas || !canvas.parentElement) return;
+        // Setup canvas with proper size
+        const setupCanvas = () => {
+          const parent = canvas.parentElement;
+          if (!parent) return;
+
+          const rect = parent.getBoundingClientRect();
           const dpr = window.devicePixelRatio || 1;
-          const rect = canvas.parentElement.getBoundingClientRect();
+
           canvas.width = rect.width * dpr;
           canvas.height = 50 * dpr;
           canvas.style.width = `${rect.width}px`;
           canvas.style.height = '50px';
-          ctx.scale(dpr, dpr);
         };
 
-        resize();
-        resizeHandler = resize;
-        window.addEventListener('resize', resizeHandler);
+        setupCanvas();
+        window.addEventListener('resize', setupCanvas);
 
         // Animation loop
         const draw = () => {
           if (!mounted) return;
-          animationRef.current = requestAnimationFrame(draw);
 
-          // Resume AudioContext if suspended (important for autoplay policies)
+          animationId = requestAnimationFrame(draw);
+
+          // Resume AudioContext if needed
           if (audioCtx.state === 'suspended') {
-            audioCtx.resume().catch(() => {});
+            audioCtx.resume();
           }
 
+          // Get frequency data
           analyser.getByteFrequencyData(dataArray);
 
-          // Debug: Log first few values to verify we're getting data
-          if (Math.random() < 0.01) { // Log only 1% of frames
-            const sum = dataArray.reduce((a, b) => a + b, 0);
-            console.log('Visualizer data:', {
-              state: audioCtx.state,
-              sum,
-              sample: dataArray.slice(0, 5),
-              playing: !audio.paused
-            });
-          }
-
-          // Clear canvas with black background
-          ctx.clearRect(0, 0, canvas.width, canvas.height);
+          // Clear canvas
           ctx.fillStyle = '#000';
           ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-          // Draw spectrum bars
-          const displayWidth = canvas.width / (window.devicePixelRatio || 1);
-          const displayHeight = canvas.height / (window.devicePixelRatio || 1);
-          const barWidth = (displayWidth / bufferLength) * 2.5;
-          let x = 0;
+          // Calculate bar dimensions
+          const dpr = window.devicePixelRatio || 1;
+          const width = canvas.width / dpr;
+          const height = canvas.height / dpr;
+          const barCount = 40; // Fixed number of bars for consistency
+          const barWidth = (width / barCount) * 0.8;
+          const gap = (width / barCount) * 0.2;
 
-          for (let i = 0; i < bufferLength; i++) {
-            const barHeight = (dataArray[i] / 255) * displayHeight;
+          // Draw bars
+          for (let i = 0; i < barCount; i++) {
+            // Sample from frequency data (spread across available data)
+            const dataIndex = Math.floor((i / barCount) * bufferLength);
+            const value = dataArray[dataIndex] || 0;
+            const barHeight = (value / 255) * height;
 
-            // Gold to orange gradient
-            const hue = 40 + (i / bufferLength) * 10; // 40 = gold, 50 = orange
-            ctx.fillStyle = `hsl(${hue}, 100%, 50%)`;
+            // Calculate position
+            const x = i * (barWidth + gap);
+            const y = height - barHeight;
 
-            ctx.fillRect(
-              x,
-              displayHeight - barHeight,
-              barWidth - 1,
-              barHeight
-            );
+            // Draw bar with gradient
+            const gradient = ctx.createLinearGradient(0, y, 0, height);
+            gradient.addColorStop(0, '#F4D03F');
+            gradient.addColorStop(1, '#FFD700');
 
-            x += barWidth;
+            ctx.fillStyle = gradient;
+            ctx.fillRect(x * dpr, y * dpr, barWidth * dpr, barHeight * dpr);
           }
         };
 
         draw();
 
+        return () => {
+          mounted = false;
+          if (animationId) {
+            cancelAnimationFrame(animationId);
+          }
+          window.removeEventListener('resize', setupCanvas);
+        };
+
       } catch (e) {
-        console.error('Visualizer init failed:', e);
+        console.error('Visualizer setup failed:', e);
       }
     };
 
@@ -304,15 +307,11 @@ export default function MusicPlayer() {
 
     return () => {
       mounted = false;
-      if (animationRef.current) {
-        cancelAnimationFrame(animationRef.current);
-        animationRef.current = null;
-      }
-      if (resizeHandler) {
-        window.removeEventListener('resize', resizeHandler);
+      if (animationId) {
+        cancelAnimationFrame(animationId);
       }
     };
-  }, []); // Only run once on mount
+  }, [audio]); // Re-initialize if audio element changes
 
   const TinyText = styled(Typography)({
     fontSize: "0.75rem",

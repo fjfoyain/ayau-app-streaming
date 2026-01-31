@@ -240,11 +240,11 @@ export default function HomePage({ session }) {
         </div>
 
         {/* Central Content - Now Playing */}
-        <div className="flex-1 flex items-center justify-center p-8">
+        <div className="flex-1 flex items-center justify-center p-4 md:p-8 overflow-hidden">
           {state.currentSong ? (
-            <div className="flex flex-col items-center max-w-2xl w-full">
-              {/* Large Cover Art */}
-              <div className="w-full aspect-square max-w-lg mb-8 rounded-3xl overflow-hidden border-4 border-ayau-gold shadow-2xl shadow-ayau-gold/20">
+            <div className="flex flex-col items-center w-full max-w-4xl">
+              {/* Large Cover Art - Responsive */}
+              <div className="w-full max-w-[90vw] md:max-w-md lg:max-w-lg xl:max-w-xl aspect-square mb-4 md:mb-8 rounded-2xl md:rounded-3xl overflow-hidden border-2 md:border-4 border-ayau-gold shadow-2xl shadow-ayau-gold/20">
                 <img
                   src={state.currentSong.coverImage || "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Crect width='300' height='300' fill='%23000'/%3E%3Ctext x='150' y='150' font-family='Arial' font-size='60' fill='%23F4D03F' text-anchor='middle' dominant-baseline='middle'%3E%E2%99%AB%3C/text%3E%3C/svg%3E"}
                   alt={state.currentSong.title}
@@ -252,30 +252,30 @@ export default function HomePage({ session }) {
                 />
               </div>
 
-              {/* Song Info */}
-              <div className="text-center w-full">
-                <h1 className="text-4xl lg:text-6xl font-bold text-ayau-gold mb-2 truncate">
+              {/* Song Info - Responsive */}
+              <div className="text-center w-full px-4">
+                <h1 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl xl:text-6xl font-bold text-ayau-gold mb-1 md:mb-2 truncate">
                   {state.currentSong.title}
                 </h1>
-                <p className="text-2xl lg:text-3xl text-ayau-gold/80 truncate">
+                <p className="text-xl sm:text-2xl md:text-3xl text-ayau-gold/80 truncate">
                   {state.currentSong.performer}
                 </p>
                 {state.currentSong.author && (
-                  <p className="text-lg text-ayau-gold/60 mt-2 truncate">
+                  <p className="text-sm sm:text-base md:text-lg text-ayau-gold/60 mt-1 md:mt-2 truncate">
                     {state.currentSong.author}
                   </p>
                 )}
               </div>
             </div>
           ) : (
-            <div className="text-center">
-              <div className="w-64 h-64 mx-auto mb-8 rounded-full bg-gradient-to-br from-ayau-gold/20 to-ayau-gold/5 flex items-center justify-center border-4 border-ayau-gold/30">
-                <span className="text-9xl">🎵</span>
+            <div className="text-center px-4">
+              <div className="w-48 h-48 sm:w-56 sm:h-56 md:w-64 md:h-64 mx-auto mb-6 md:mb-8 rounded-full bg-gradient-to-br from-ayau-gold/20 to-ayau-gold/5 flex items-center justify-center border-4 border-ayau-gold/30">
+                <span className="text-7xl sm:text-8xl md:text-9xl">🎵</span>
               </div>
-              <h2 className="text-3xl font-bold text-ayau-gold mb-4">
+              <h2 className="text-2xl sm:text-3xl font-bold text-ayau-gold mb-3 md:mb-4">
                 Selecciona una playlist
               </h2>
-              <p className="text-xl text-ayau-gold/60">
+              <p className="text-lg sm:text-xl text-ayau-gold/60">
                 Abre el menú lateral para comenzar a reproducir
               </p>
             </div>
