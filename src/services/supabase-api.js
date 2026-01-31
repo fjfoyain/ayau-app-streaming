@@ -960,7 +960,7 @@ export const getAnalyticsByVenue = async (accountId = null, venueId = null) => {
     query = query.eq('venue_id', venueId)
   }
 
-  const { data, error } = await query.order('account_name', 'venue_name')
+  const { data, error } = await query.order('account_name').order('venue_name')
 
   if (error) {
     console.error('Error fetching analytics by venue:', error)
