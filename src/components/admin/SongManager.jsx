@@ -60,10 +60,14 @@ export default function SongManager() {
     title: '',
     performer: '',
     author: '',
+    album: '',
     duration: 0,
     file_url: '',
     cover_image_url: '',
     isrc: '',
+    iswc: '',
+    ipi: '',
+    code: '',
   });
 
   useEffect(() => {
@@ -139,6 +143,7 @@ export default function SongManager() {
         title: metadata.common.title || file.name.replace(/\.[^/.]+$/, ''),
         performer: metadata.common.artist || '',
         author: metadata.common.composer || metadata.common.albumartist || '',
+        album: metadata.common.album || '',
         duration: Math.floor(metadata.format.duration || 0),
         isrc: isrcValue,
         cover_image_url: coverDataUrl, // Preview data URL (will be uploaded on submit)
@@ -161,10 +166,14 @@ export default function SongManager() {
         title: song.title,
         performer: song.performer,
         author: song.author || '',
+        album: song.album || '',
         duration: song.duration,
         file_url: song.file_url,
         cover_image_url: song.cover_image_url || '',
         isrc: song.isrc || '',
+        iswc: song.iswc || '',
+        ipi: song.ipi || '',
+        code: song.code || '',
       });
     } else {
       setEditingSong(null);
@@ -173,10 +182,14 @@ export default function SongManager() {
         title: '',
         performer: '',
         author: '',
+        album: '',
         duration: 0,
         file_url: '',
         cover_image_url: '',
         isrc: '',
+        iswc: '',
+        ipi: '',
+        code: '',
       });
     }
     setDialogOpen(true);
@@ -392,8 +405,12 @@ export default function SongManager() {
           title: metadata.common.title || file.name.replace(/\.[^/.]+$/, ''),
           performer: metadata.common.artist || 'Desconocido',
           author: metadata.common.composer || metadata.common.albumartist || '',
+          album: metadata.common.album || '',
           duration: Math.floor(metadata.format.duration || 0),
           isrc: isrcValue,
+          iswc: '', // Not typically in MP3 metadata
+          ipi: '', // Not typically in MP3 metadata
+          code: '', // Not typically in MP3 metadata
           file_url: '', // Will be updated after upload
           cover_image_url: coverUrl,
         };
@@ -668,11 +685,11 @@ export default function SongManager() {
               }}
             />
             <TextField
-              label="Autor/Compositor"
+              label="Álbum"
               fullWidth
               variant="outlined"
-              value={formData.author}
-              onChange={(e) => setFormData({ ...formData, author: e.target.value })}
+              value={formData.album}
+              onChange={(e) => setFormData({ ...formData, album: e.target.value })}
               sx={{
                 '& .MuiOutlinedInput-root': {
                   color: '#F4D03F',
@@ -682,6 +699,25 @@ export default function SongManager() {
                 },
                 '& .MuiInputLabel-root': { color: '#F4D03F99' },
                 '& .MuiInputLabel-root.Mui-focused': { color: '#F4D03F' },
+              }}
+            />
+            <TextField
+              label="Autor/Compositor (separados por comas)"
+              fullWidth
+              variant="outlined"
+              value={formData.author}
+              onChange={(e) => setFormData({ ...formData, author: e.target.value })}
+              helperText="Múltiples valores separados por comas"
+              sx={{
+                '& .MuiOutlinedInput-root': {
+                  color: '#F4D03F',
+                  '& fieldset': { borderColor: '#F4D03F44' },
+                  '&:hover fieldset': { borderColor: '#F4D03F' },
+                  '&.Mui-focused fieldset': { borderColor: '#F4D03F' },
+                },
+                '& .MuiInputLabel-root': { color: '#F4D03F99' },
+                '& .MuiInputLabel-root.Mui-focused': { color: '#F4D03F' },
+                '& .MuiFormHelperText-root': { color: '#F4D03F99' },
               }}
             />
             <TextField
@@ -744,6 +780,60 @@ export default function SongManager() {
               variant="outlined"
               value={formData.isrc}
               onChange={(e) => setFormData({ ...formData, isrc: e.target.value })}
+              sx={{
+                '& .MuiOutlinedInput-root': {
+                  color: '#F4D03F',
+                  '& fieldset': { borderColor: '#F4D03F44' },
+                  '&:hover fieldset': { borderColor: '#F4D03F' },
+                  '&.Mui-focused fieldset': { borderColor: '#F4D03F' },
+                },
+                '& .MuiInputLabel-root': { color: '#F4D03F99' },
+                '& .MuiInputLabel-root.Mui-focused': { color: '#F4D03F' },
+              }}
+            />
+            <TextField
+              label="ISWC (Código Internacional de Obra)"
+              fullWidth
+              variant="outlined"
+              value={formData.iswc}
+              onChange={(e) => setFormData({ ...formData, iswc: e.target.value })}
+              sx={{
+                '& .MuiOutlinedInput-root': {
+                  color: '#F4D03F',
+                  '& fieldset': { borderColor: '#F4D03F44' },
+                  '&:hover fieldset': { borderColor: '#F4D03F' },
+                  '&.Mui-focused fieldset': { borderColor: '#F4D03F' },
+                },
+                '& .MuiInputLabel-root': { color: '#F4D03F99' },
+                '& .MuiInputLabel-root.Mui-focused': { color: '#F4D03F' },
+              }}
+            />
+            <TextField
+              label="IPI (Números separados por comas)"
+              fullWidth
+              variant="outlined"
+              value={formData.ipi}
+              onChange={(e) => setFormData({ ...formData, ipi: e.target.value })}
+              helperText="Múltiples valores separados por comas"
+              sx={{
+                gridColumn: '1 / -1',
+                '& .MuiOutlinedInput-root': {
+                  color: '#F4D03F',
+                  '& fieldset': { borderColor: '#F4D03F44' },
+                  '&:hover fieldset': { borderColor: '#F4D03F' },
+                  '&.Mui-focused fieldset': { borderColor: '#F4D03F' },
+                },
+                '& .MuiInputLabel-root': { color: '#F4D03F99' },
+                '& .MuiInputLabel-root.Mui-focused': { color: '#F4D03F' },
+                '& .MuiFormHelperText-root': { color: '#F4D03F99' },
+              }}
+            />
+            <TextField
+              label="Código de Obra"
+              fullWidth
+              variant="outlined"
+              value={formData.code}
+              onChange={(e) => setFormData({ ...formData, code: e.target.value })}
               sx={{
                 gridColumn: '1 / -1',
                 '& .MuiOutlinedInput-root': {

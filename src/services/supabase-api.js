@@ -247,10 +247,14 @@ export const createSong = async (songData) => {
       title: songData.title,
       performer: songData.performer,
       author: songData.author,
+      album: songData.album || null,
       duration: songData.duration,
       file_url: songData.file_url,
       cover_image_url: songData.cover_image_url,
-      isrc: songData.isrc
+      isrc: songData.isrc,
+      iswc: songData.iswc || null,
+      ipi: songData.ipi || null,
+      code: songData.code || null
     })
     .select()
     .single()
