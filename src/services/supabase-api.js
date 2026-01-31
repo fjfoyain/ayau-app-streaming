@@ -508,23 +508,19 @@ export const getMonthlyAnalytics = async (year, month) => {
 export const uploadAudioFile = async (file, songId) => {
   const fileExt = file.name.split('.').pop()
   const fileName = `${songId}.${fileExt}`
-  const filePath = `${fileName}`
+  const filePath = `songs/${fileName}` // Include bucket name in path
 
   const { error } = await supabase.storage
     .from('songs')
-    .upload(filePath, file, {
+    .upload(fileName, file, {
       cacheControl: '3600',
       upsert: true
     })
 
   if (error) throw error
 
-  // Get public URL
-  const { data: { publicUrl } } = supabase.storage
-    .from('songs')
-    .getPublicUrl(filePath)
-
-  return publicUrl
+  // Return path for private bucket (will be converted to signed URL by PlayerContext)
+  return filePath
 }
 
 /**
@@ -533,23 +529,19 @@ export const uploadAudioFile = async (file, songId) => {
 export const uploadCoverImage = async (file, songId) => {
   const fileExt = file.name.split('.').pop()
   const fileName = `${songId}.${fileExt}`
-  const filePath = `${fileName}`
+  const filePath = `covers/${fileName}` // Include bucket name in path
 
   const { error } = await supabase.storage
     .from('covers')
-    .upload(filePath, file, {
+    .upload(fileName, file, {
       cacheControl: '3600',
       upsert: true
     })
 
   if (error) throw error
 
-  // Get public URL
-  const { data: { publicUrl } } = supabase.storage
-    .from('covers')
-    .getPublicUrl(filePath)
-
-  return publicUrl
+  // Return path for private bucket (will be converted to signed URL by PlayerContext)
+  return filePath
 }
 
 /**

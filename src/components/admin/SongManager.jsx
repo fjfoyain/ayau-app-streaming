@@ -36,6 +36,7 @@ import {
   removeSongFromPlaylist,
   getPlaylistSongs,
   uploadAudioFile,
+  uploadCoverImage,
   getSongPlaylists,
 } from '../../services/supabase-api';
 
