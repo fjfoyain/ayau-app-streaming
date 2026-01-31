@@ -20,6 +20,8 @@ import PeopleIcon from '@mui/icons-material/People';
 import BarChartIcon from '@mui/icons-material/BarChart';
 import ExitToAppIcon from '@mui/icons-material/ExitToApp';
 import HomeIcon from '@mui/icons-material/Home';
+import BusinessIcon from '@mui/icons-material/Business';
+import StoreIcon from '@mui/icons-material/Store';
 import Button from '@mui/material/Button';
 import { supabase } from '../../lib/supabase';
 import { getUserRole } from '../../services/supabase-api';
@@ -28,6 +30,8 @@ const drawerWidth = 280;
 
 const allMenuItems = [
   { text: 'Dashboard', icon: <DashboardIcon />, path: '/admin', roles: ['admin', 'manager'] },
+  { text: 'Cuentas', icon: <BusinessIcon />, path: '/admin/accounts', roles: ['admin', 'manager'] },
+  { text: 'Locales', icon: <StoreIcon />, path: '/admin/venues', roles: ['admin', 'manager'] },
   { text: 'Playlists', icon: <QueueMusicIcon />, path: '/admin/playlists', roles: ['admin', 'manager'] },
   { text: 'Canciones', icon: <MusicNoteIcon />, path: '/admin/songs', roles: ['admin', 'manager'] },
   { text: 'Usuarios', icon: <PeopleIcon />, path: '/admin/users', roles: ['admin'] }, // Solo admins

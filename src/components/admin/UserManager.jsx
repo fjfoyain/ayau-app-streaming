@@ -36,11 +36,18 @@ import {
   assignPlaylistToUser,
   removePlaylistFromUser,
   getUserPlaylists,
+  createUserWithAccess,
+  getAllAccounts,
+  getAllVenues,
+  getVenuesForAccount,
 } from '../../services/supabase-api';
 
 export default function UserManager() {
   const [users, setUsers] = useState([]);
   const [playlists, setPlaylists] = useState([]);
+  const [accounts, setAccounts] = useState([]);
+  const [venues, setVenues] = useState([]);
+  const [filteredVenues, setFilteredVenues] = useState([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [roleDialogOpen, setRoleDialogOpen] = useState(false);
@@ -56,20 +63,37 @@ export default function UserManager() {
     password: '',
     full_name: '',
     role: 'user',
+    access_level: 'location',
+    client_id: '',
+    location_id: '',
   });
 
   useEffect(() => {
     fetchData();
   }, []);
 
+  // Filter venues when client_id changes
+  useEffect(() => {
+    if (newUserData.client_id) {
+      const filtered = venues.filter((v) => v.client_id === newUserData.client_id);
+      setFilteredVenues(filtered);
+    } else {
+      setFilteredVenues([]);
+    }
+  }, [newUserData.client_id, venues]);
+
   const fetchData = async () => {
     try {
-      const [usersData, playlistsData] = await Promise.all([
+      const [usersData, playlistsData, accountsData, venuesData] = await Promise.all([
         getAllUsers(),
         getUserPlaylists(),
+        getAllAccounts(),
+        getAllVenues(),
       ]);
       setUsers(usersData);
       setPlaylists(playlistsData);
+      setAccounts(accountsData);
+      setVenues(venuesData);
     } catch (error) {
       console.error('Error fetching data:', error);
     } finally {
@@ -108,6 +132,9 @@ export default function UserManager() {
       password: '',
       full_name: '',
       role: 'user',
+      access_level: 'location',
+      client_id: '',
+      location_id: '',
     });
     setCreateUserDialogOpen(true);
   };
@@ -119,6 +146,9 @@ export default function UserManager() {
       password: '',
       full_name: '',
       role: 'user',
+      access_level: 'location',
+      client_id: '',
+      location_id: '',
     });
   };
 
@@ -128,9 +158,24 @@ export default function UserManager() {
       return;
     }
 
+    // Validate access level requirements
+    if (newUserData.access_level === 'account' && !newUserData.client_id) {
+      alert('Debes seleccionar una cuenta para usuarios con nivel de cuenta');
+      return;
+    }
+    if (newUserData.access_level === 'location' && !newUserData.location_id) {
+      alert('Debes seleccionar un local para usuarios con nivel de local');
+      return;
+    }
+
     setSaving(true);
     try {
-      await createUser(newUserData);
+      // Use createUserWithAccess if access_level fields are set
+      if (newUserData.access_level && (newUserData.client_id || newUserData.location_id)) {
+        await createUserWithAccess(newUserData);
+      } else {
+        await createUser(newUserData);
+      }
       alert('Usuario creado exitosamente! Recibirá un email de confirmación.');
       handleCloseCreateUserDialog();
       fetchData();
@@ -222,6 +267,21 @@ export default function UserManager() {
     );
   };
 
+  const getAccessScope = (user) => {
+    if (user.role === 'admin') {
+      return 'Acceso Total';
+    }
+    if (user.access_level === 'account' && user.client_id) {
+      const account = accounts.find((a) => a.id === user.client_id);
+      return account ? `Cuenta: ${account.name}` : 'Cuenta no encontrada';
+    }
+    if (user.access_level === 'location' && user.location_id) {
+      const venue = venues.find((v) => v.id === user.location_id);
+      return venue ? `Local: ${venue.name}` : 'Local no encontrado';
+    }
+    return '-';
+  };
+
   if (loading) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '80vh' }}>
@@ -267,6 +327,7 @@ export default function UserManager() {
               <TableCell sx={{ color: '#F4D03F', fontWeight: 'bold' }}>Email</TableCell>
               <TableCell sx={{ color: '#F4D03F', fontWeight: 'bold' }}>Nombre</TableCell>
               <TableCell sx={{ color: '#F4D03F', fontWeight: 'bold' }} align="center">Rol</TableCell>
+              <TableCell sx={{ color: '#F4D03F', fontWeight: 'bold' }}>Alcance de Acceso</TableCell>
               <TableCell sx={{ color: '#F4D03F', fontWeight: 'bold' }} align="center">Activo</TableCell>
               <TableCell sx={{ color: '#F4D03F', fontWeight: 'bold' }} align="center">Acciones</TableCell>
             </TableRow>
@@ -288,6 +349,7 @@ export default function UserManager() {
                 </TableCell>
                 <TableCell sx={{ color: '#F4D03F99' }}>{user.full_name || '-'}</TableCell>
                 <TableCell align="center">{getRoleChip(user.role)}</TableCell>
+                <TableCell sx={{ color: '#F4D03F99' }}>{getAccessScope(user)}</TableCell>
                 <TableCell align="center">
                   {user.is_active ? (
                     <CheckCircleIcon sx={{ color: '#4CAF50' }} />
@@ -636,6 +698,19 @@ export default function UserManager() {
                   '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#F4D03F' },
                   '& .MuiSvgIcon-root': { color: '#F4D03F' },
                 }}
+                MenuProps={{
+                  PaperProps: {
+                    sx: {
+                      backgroundColor: '#000',
+                      border: '2px solid #F4D03F',
+                      '& .MuiMenuItem-root': {
+                        color: '#F4D03F',
+                        '&:hover': { backgroundColor: '#F4D03F22' },
+                        '&.Mui-selected': { backgroundColor: '#F4D03F33' },
+                      },
+                    },
+                  },
+                }}
               >
                 <MenuItem value="user">Usuario Regular</MenuItem>
                 <MenuItem value="manager">Manager (Gestión de Contenido)</MenuItem>
@@ -643,6 +718,149 @@ export default function UserManager() {
                 <MenuItem value="client_user">Usuario Cliente</MenuItem>
               </Select>
             </FormControl>
+            <FormControl fullWidth>
+              <InputLabel sx={{ color: '#F4D03F99', '&.Mui-focused': { color: '#F4D03F' } }}>
+                Nivel de Acceso
+              </InputLabel>
+              <Select
+                value={newUserData.access_level}
+                onChange={(e) => setNewUserData({ ...newUserData, access_level: e.target.value, client_id: '', location_id: '' })}
+                sx={{
+                  color: '#F4D03F',
+                  '& .MuiOutlinedInput-notchedOutline': { borderColor: '#F4D03F44' },
+                  '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#F4D03F' },
+                  '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#F4D03F' },
+                  '& .MuiSvgIcon-root': { color: '#F4D03F' },
+                }}
+                MenuProps={{
+                  PaperProps: {
+                    sx: {
+                      backgroundColor: '#000',
+                      border: '2px solid #F4D03F',
+                      '& .MuiMenuItem-root': {
+                        color: '#F4D03F',
+                        '&:hover': { backgroundColor: '#F4D03F22' },
+                        '&.Mui-selected': { backgroundColor: '#F4D03F33' },
+                      },
+                    },
+                  },
+                }}
+              >
+                <MenuItem value="account">Nivel Cuenta (acceso a todos los locales)</MenuItem>
+                <MenuItem value="location">Nivel Local (acceso a un local específico)</MenuItem>
+              </Select>
+            </FormControl>
+            {newUserData.access_level === 'account' && (
+              <FormControl fullWidth required>
+                <InputLabel sx={{ color: '#F4D03F99', '&.Mui-focused': { color: '#F4D03F' } }}>
+                  Cuenta
+                </InputLabel>
+                <Select
+                  value={newUserData.client_id}
+                  onChange={(e) => setNewUserData({ ...newUserData, client_id: e.target.value })}
+                  sx={{
+                    color: '#F4D03F',
+                    '& .MuiOutlinedInput-notchedOutline': { borderColor: '#F4D03F44' },
+                    '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#F4D03F' },
+                    '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#F4D03F' },
+                    '& .MuiSvgIcon-root': { color: '#F4D03F' },
+                  }}
+                  MenuProps={{
+                    PaperProps: {
+                      sx: {
+                        backgroundColor: '#000',
+                        border: '2px solid #F4D03F',
+                        '& .MuiMenuItem-root': {
+                          color: '#F4D03F',
+                          '&:hover': { backgroundColor: '#F4D03F22' },
+                          '&.Mui-selected': { backgroundColor: '#F4D03F33' },
+                        },
+                      },
+                    },
+                  }}
+                >
+                  {accounts.map((account) => (
+                    <MenuItem key={account.id} value={account.id}>
+                      {account.name}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            )}
+            {newUserData.access_level === 'location' && (
+              <>
+                <FormControl fullWidth required>
+                  <InputLabel sx={{ color: '#F4D03F99', '&.Mui-focused': { color: '#F4D03F' } }}>
+                    Cuenta
+                  </InputLabel>
+                  <Select
+                    value={newUserData.client_id}
+                    onChange={(e) => setNewUserData({ ...newUserData, client_id: e.target.value, location_id: '' })}
+                    sx={{
+                      color: '#F4D03F',
+                      '& .MuiOutlinedInput-notchedOutline': { borderColor: '#F4D03F44' },
+                      '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#F4D03F' },
+                      '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#F4D03F' },
+                      '& .MuiSvgIcon-root': { color: '#F4D03F' },
+                    }}
+                    MenuProps={{
+                      PaperProps: {
+                        sx: {
+                          backgroundColor: '#000',
+                          border: '2px solid #F4D03F',
+                          '& .MuiMenuItem-root': {
+                            color: '#F4D03F',
+                            '&:hover': { backgroundColor: '#F4D03F22' },
+                            '&.Mui-selected': { backgroundColor: '#F4D03F33' },
+                          },
+                        },
+                      },
+                    }}
+                  >
+                    {accounts.map((account) => (
+                      <MenuItem key={account.id} value={account.id}>
+                        {account.name}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+                <FormControl fullWidth required disabled={!newUserData.client_id}>
+                  <InputLabel sx={{ color: '#F4D03F99', '&.Mui-focused': { color: '#F4D03F' } }}>
+                    Local
+                  </InputLabel>
+                  <Select
+                    value={newUserData.location_id}
+                    onChange={(e) => setNewUserData({ ...newUserData, location_id: e.target.value })}
+                    sx={{
+                      color: '#F4D03F',
+                      '& .MuiOutlinedInput-notchedOutline': { borderColor: '#F4D03F44' },
+                      '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#F4D03F' },
+                      '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#F4D03F' },
+                      '& .MuiSvgIcon-root': { color: '#F4D03F' },
+                    }}
+                    MenuProps={{
+                      PaperProps: {
+                        sx: {
+                          backgroundColor: '#000',
+                          border: '2px solid #F4D03F',
+                          '& .MuiMenuItem-root': {
+                            color: '#F4D03F',
+                            '&:hover': { backgroundColor: '#F4D03F22' },
+                            '&.Mui-selected': { backgroundColor: '#F4D03F33' },
+                          },
+                        },
+                      },
+                    }}
+                  >
+                    {filteredVenues.map((venue) => (
+                      <MenuItem key={venue.id} value={venue.id}>
+                        {venue.name}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </>
+            )}
             <Paper
               sx={{
                 p: 2,

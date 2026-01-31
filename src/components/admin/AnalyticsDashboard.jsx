@@ -12,15 +12,35 @@ import TextField from '@mui/material/TextField';
 import Button from '@mui/material/Button';
 import CircularProgress from '@mui/material/CircularProgress';
 import Grid from '@mui/material/Grid';
+import FormControl from '@mui/material/FormControl';
+import InputLabel from '@mui/material/InputLabel';
+import Select from '@mui/material/Select';
+import MenuItem from '@mui/material/MenuItem';
+import Accordion from '@mui/material/Accordion';
+import AccordionSummary from '@mui/material/AccordionSummary';
+import AccordionDetails from '@mui/material/AccordionDetails';
 import SearchIcon from '@mui/icons-material/Search';
-import { getPlayStats } from '../../services/supabase-api';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import {
+  getPlayStats,
+  getAllAccounts,
+  getVenuesForAccount,
+  getAnalyticsByAccount,
+  getAnalyticsByVenue,
+} from '../../services/supabase-api';
 
 export default function AnalyticsDashboard() {
   const [playHistory, setPlayHistory] = useState([]);
+  const [accounts, setAccounts] = useState([]);
+  const [venues, setVenues] = useState([]);
+  const [accountBreakdown, setAccountBreakdown] = useState([]);
+  const [venueBreakdown, setVenueBreakdown] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filters, setFilters] = useState({
     startDate: '',
     endDate: '',
+    accountId: '',
+    venueId: '',
   });
   const [stats, setStats] = useState({
     totalPlays: 0,
@@ -29,8 +49,62 @@ export default function AnalyticsDashboard() {
   });
 
   useEffect(() => {
-    fetchPlayHistory();
+    fetchInitialData();
   }, []);
+
+  useEffect(() => {
+    if (filters.accountId) {
+      fetchVenuesForSelectedAccount();
+      fetchAccountBreakdown();
+    } else {
+      setVenues([]);
+      setVenueBreakdown([]);
+      setFilters(prev => ({ ...prev, venueId: '' }));
+    }
+  }, [filters.accountId]);
+
+  const fetchInitialData = async () => {
+    setLoading(true);
+    try {
+      const [accountsData] = await Promise.all([
+        getAllAccounts(),
+        fetchPlayHistory(),
+      ]);
+      setAccounts(accountsData || []);
+      fetchGlobalAccountBreakdown();
+    } catch (error) {
+      console.error('Error fetching initial data:', error);
+    }
+    setLoading(false);
+  };
+
+  const fetchVenuesForSelectedAccount = async () => {
+    try {
+      const venuesData = await getVenuesForAccount(filters.accountId);
+      setVenues(venuesData || []);
+    } catch (error) {
+      console.error('Error fetching venues:', error);
+    }
+  };
+
+  const fetchGlobalAccountBreakdown = async () => {
+    try {
+      const data = await getAnalyticsByAccount();
+      setAccountBreakdown(data || []);
+    } catch (error) {
+      console.error('Error fetching account breakdown:', error);
+    }
+  };
+
+  const fetchAccountBreakdown = async () => {
+    if (!filters.accountId) return;
+    try {
+      const data = await getAnalyticsByVenue(filters.accountId);
+      setVenueBreakdown(data || []);
+    } catch (error) {
+      console.error('Error fetching venue breakdown:', error);
+    }
+  };
 
   const fetchPlayHistory = async (customFilters = {}) => {
     setLoading(true);
@@ -64,12 +138,21 @@ export default function AnalyticsDashboard() {
     if (filters.endDate) {
       filterObj.endDate = new Date(filters.endDate).toISOString();
     }
+    if (filters.accountId) {
+      filterObj.clientId = filters.accountId;
+    }
+    if (filters.venueId) {
+      filterObj.locationId = filters.venueId;
+    }
     fetchPlayHistory(filterObj);
   };
 
   const handleClearFilters = () => {
-    setFilters({ startDate: '', endDate: '' });
+    setFilters({ startDate: '', endDate: '', accountId: '', venueId: '' });
+    setVenues([]);
+    setVenueBreakdown([]);
     fetchPlayHistory();
+    fetchGlobalAccountBreakdown();
   };
 
   const formatDate = (dateString) => {
@@ -103,10 +186,22 @@ export default function AnalyticsDashboard() {
     );
   }
 
+  const getHeaderTitle = () => {
+    let title = 'Analytics & Reportes';
+    if (filters.venueId) {
+      const venue = venues.find((v) => v.id === filters.venueId);
+      if (venue) title += ` - ${venue.name}`;
+    } else if (filters.accountId) {
+      const account = accounts.find((a) => a.id === filters.accountId);
+      if (account) title += ` - ${account.name}`;
+    }
+    return title;
+  };
+
   return (
     <Box>
       <Typography variant="h3" sx={{ color: '#F4D03F', fontWeight: 'bold', mb: 4 }}>
-        Analytics & Reportes
+        {getHeaderTitle()}
       </Typography>
 
       {/* Stats Cards */}
@@ -164,6 +259,143 @@ export default function AnalyticsDashboard() {
         </Grid>
       </Grid>
 
+      {/* Account Breakdown - shown when no account filter selected */}
+      {!filters.accountId && accountBreakdown.length > 0 && (
+        <Accordion
+          sx={{
+            mb: 3,
+            backgroundColor: '#000',
+            border: '2px solid #F4D03F44',
+            borderRadius: '16px !important',
+            '&:before': { display: 'none' },
+          }}
+        >
+          <AccordionSummary
+            expandIcon={<ExpandMoreIcon sx={{ color: '#F4D03F' }} />}
+            sx={{
+              borderRadius: '16px',
+              '&:hover': { backgroundColor: '#F4D03F11' },
+            }}
+          >
+            <Typography variant="h6" sx={{ color: '#F4D03F', fontWeight: 'bold' }}>
+              Desglose por Cuenta
+            </Typography>
+          </AccordionSummary>
+          <AccordionDetails>
+            <TableContainer>
+              <Table>
+                <TableHead>
+                  <TableRow>
+                    <TableCell sx={{ color: '#F4D03F', fontWeight: 'bold', borderBottom: '2px solid #F4D03F44' }}>
+                      Cuenta
+                    </TableCell>
+                    <TableCell align="center" sx={{ color: '#F4D03F', fontWeight: 'bold', borderBottom: '2px solid #F4D03F44' }}>
+                      # Locales
+                    </TableCell>
+                    <TableCell align="center" sx={{ color: '#F4D03F', fontWeight: 'bold', borderBottom: '2px solid #F4D03F44' }}>
+                      Total Reproducciones
+                    </TableCell>
+                    <TableCell align="center" sx={{ color: '#F4D03F', fontWeight: 'bold', borderBottom: '2px solid #F4D03F44' }}>
+                      Tiempo Total
+                    </TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {accountBreakdown.map((account) => (
+                    <TableRow
+                      key={account.account_id}
+                      sx={{
+                        '&:hover': { backgroundColor: '#F4D03F11' },
+                        borderBottom: '1px solid #F4D03F22',
+                      }}
+                    >
+                      <TableCell sx={{ color: '#F4D03F' }}>{account.account_name}</TableCell>
+                      <TableCell align="center" sx={{ color: '#F4D03F99' }}>
+                        {account.total_venues || 0}
+                      </TableCell>
+                      <TableCell align="center" sx={{ color: '#F4D03F99' }}>
+                        {(account.total_plays || 0).toLocaleString()}
+                      </TableCell>
+                      <TableCell align="center" sx={{ color: '#F4D03F99' }}>
+                        {formatTotalTime(account.total_seconds_played || 0)}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          </AccordionDetails>
+        </Accordion>
+      )}
+
+      {/* Venue Breakdown - shown when account filter is selected */}
+      {filters.accountId && venueBreakdown.length > 0 && (
+        <Accordion
+          defaultExpanded
+          sx={{
+            mb: 3,
+            backgroundColor: '#000',
+            border: '2px solid #F4D03F44',
+            borderRadius: '16px !important',
+            '&:before': { display: 'none' },
+          }}
+        >
+          <AccordionSummary
+            expandIcon={<ExpandMoreIcon sx={{ color: '#F4D03F' }} />}
+            sx={{
+              borderRadius: '16px',
+              '&:hover': { backgroundColor: '#F4D03F11' },
+            }}
+          >
+            <Typography variant="h6" sx={{ color: '#F4D03F', fontWeight: 'bold' }}>
+              Desglose por Local
+            </Typography>
+          </AccordionSummary>
+          <AccordionDetails>
+            <TableContainer>
+              <Table>
+                <TableHead>
+                  <TableRow>
+                    <TableCell sx={{ color: '#F4D03F', fontWeight: 'bold', borderBottom: '2px solid #F4D03F44' }}>
+                      Local
+                    </TableCell>
+                    <TableCell sx={{ color: '#F4D03F', fontWeight: 'bold', borderBottom: '2px solid #F4D03F44' }}>
+                      Ciudad
+                    </TableCell>
+                    <TableCell align="center" sx={{ color: '#F4D03F', fontWeight: 'bold', borderBottom: '2px solid #F4D03F44' }}>
+                      Total Reproducciones
+                    </TableCell>
+                    <TableCell align="center" sx={{ color: '#F4D03F', fontWeight: 'bold', borderBottom: '2px solid #F4D03F44' }}>
+                      Tiempo Total
+                    </TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {venueBreakdown.map((venue) => (
+                    <TableRow
+                      key={venue.venue_id}
+                      sx={{
+                        '&:hover': { backgroundColor: '#F4D03F11' },
+                        borderBottom: '1px solid #F4D03F22',
+                      }}
+                    >
+                      <TableCell sx={{ color: '#F4D03F' }}>{venue.venue_name}</TableCell>
+                      <TableCell sx={{ color: '#F4D03F99' }}>{venue.city || '-'}</TableCell>
+                      <TableCell align="center" sx={{ color: '#F4D03F99' }}>
+                        {(venue.total_plays || 0).toLocaleString()}
+                      </TableCell>
+                      <TableCell align="center" sx={{ color: '#F4D03F99' }}>
+                        {formatTotalTime(venue.total_seconds_played || 0)}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          </AccordionDetails>
+        </Accordion>
+      )}
+
       {/* Filters */}
       <Paper
         sx={{
@@ -177,41 +409,129 @@ export default function AnalyticsDashboard() {
         <Typography variant="h6" sx={{ color: '#F4D03F', mb: 2 }}>
           Filtros
         </Typography>
-        <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
-          <TextField
-            label="Fecha Inicio"
-            type="date"
-            value={filters.startDate}
-            onChange={(e) => setFilters({ ...filters, startDate: e.target.value })}
-            InputLabelProps={{ shrink: true }}
-            sx={{
-              '& .MuiOutlinedInput-root': {
-                color: '#F4D03F',
-                '& fieldset': { borderColor: '#F4D03F44' },
-                '&:hover fieldset': { borderColor: '#F4D03F' },
-                '&.Mui-focused fieldset': { borderColor: '#F4D03F' },
-              },
-              '& .MuiInputLabel-root': { color: '#F4D03F99' },
-              '& .MuiInputLabel-root.Mui-focused': { color: '#F4D03F' },
-            }}
-          />
-          <TextField
-            label="Fecha Fin"
-            type="date"
-            value={filters.endDate}
-            onChange={(e) => setFilters({ ...filters, endDate: e.target.value })}
-            InputLabelProps={{ shrink: true }}
-            sx={{
-              '& .MuiOutlinedInput-root': {
-                color: '#F4D03F',
-                '& fieldset': { borderColor: '#F4D03F44' },
-                '&:hover fieldset': { borderColor: '#F4D03F' },
-                '&.Mui-focused fieldset': { borderColor: '#F4D03F' },
-              },
-              '& .MuiInputLabel-root': { color: '#F4D03F99' },
-              '& .MuiInputLabel-root.Mui-focused': { color: '#F4D03F' },
-            }}
-          />
+        <Grid container spacing={2} sx={{ mb: 2 }}>
+          <Grid item xs={12} sm={6} md={3}>
+            <FormControl fullWidth>
+              <InputLabel sx={{ color: '#F4D03F99', '&.Mui-focused': { color: '#F4D03F' } }}>
+                Cuenta
+              </InputLabel>
+              <Select
+                value={filters.accountId}
+                onChange={(e) => setFilters({ ...filters, accountId: e.target.value, venueId: '' })}
+                sx={{
+                  color: '#F4D03F',
+                  '& .MuiOutlinedInput-notchedOutline': { borderColor: '#F4D03F44' },
+                  '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#F4D03F' },
+                  '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#F4D03F' },
+                  '& .MuiSvgIcon-root': { color: '#F4D03F' },
+                }}
+                MenuProps={{
+                  PaperProps: {
+                    sx: {
+                      backgroundColor: '#000',
+                      border: '2px solid #F4D03F',
+                      '& .MuiMenuItem-root': {
+                        color: '#F4D03F',
+                        '&:hover': { backgroundColor: '#F4D03F22' },
+                        '&.Mui-selected': { backgroundColor: '#F4D03F33' },
+                      },
+                    },
+                  },
+                }}
+              >
+                <MenuItem value="">
+                  <em>Todas las cuentas</em>
+                </MenuItem>
+                {accounts.map((account) => (
+                  <MenuItem key={account.id} value={account.id}>
+                    {account.name}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          </Grid>
+          <Grid item xs={12} sm={6} md={3}>
+            <FormControl fullWidth disabled={!filters.accountId}>
+              <InputLabel sx={{ color: '#F4D03F99', '&.Mui-focused': { color: '#F4D03F' } }}>
+                Local
+              </InputLabel>
+              <Select
+                value={filters.venueId}
+                onChange={(e) => setFilters({ ...filters, venueId: e.target.value })}
+                sx={{
+                  color: '#F4D03F',
+                  '& .MuiOutlinedInput-notchedOutline': { borderColor: '#F4D03F44' },
+                  '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#F4D03F' },
+                  '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#F4D03F' },
+                  '& .MuiSvgIcon-root': { color: '#F4D03F' },
+                }}
+                MenuProps={{
+                  PaperProps: {
+                    sx: {
+                      backgroundColor: '#000',
+                      border: '2px solid #F4D03F',
+                      '& .MuiMenuItem-root': {
+                        color: '#F4D03F',
+                        '&:hover': { backgroundColor: '#F4D03F22' },
+                        '&.Mui-selected': { backgroundColor: '#F4D03F33' },
+                      },
+                    },
+                  },
+                }}
+              >
+                <MenuItem value="">
+                  <em>Todos los locales</em>
+                </MenuItem>
+                {venues.map((venue) => (
+                  <MenuItem key={venue.id} value={venue.id}>
+                    {venue.name}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          </Grid>
+          <Grid item xs={12} sm={6} md={3}>
+            <TextField
+              label="Fecha Inicio"
+              type="date"
+              fullWidth
+              value={filters.startDate}
+              onChange={(e) => setFilters({ ...filters, startDate: e.target.value })}
+              InputLabelProps={{ shrink: true }}
+              sx={{
+                '& .MuiOutlinedInput-root': {
+                  color: '#F4D03F',
+                  '& fieldset': { borderColor: '#F4D03F44' },
+                  '&:hover fieldset': { borderColor: '#F4D03F' },
+                  '&.Mui-focused fieldset': { borderColor: '#F4D03F' },
+                },
+                '& .MuiInputLabel-root': { color: '#F4D03F99' },
+                '& .MuiInputLabel-root.Mui-focused': { color: '#F4D03F' },
+              }}
+            />
+          </Grid>
+          <Grid item xs={12} sm={6} md={3}>
+            <TextField
+              label="Fecha Fin"
+              type="date"
+              fullWidth
+              value={filters.endDate}
+              onChange={(e) => setFilters({ ...filters, endDate: e.target.value })}
+              InputLabelProps={{ shrink: true }}
+              sx={{
+                '& .MuiOutlinedInput-root': {
+                  color: '#F4D03F',
+                  '& fieldset': { borderColor: '#F4D03F44' },
+                  '&:hover fieldset': { borderColor: '#F4D03F' },
+                  '&.Mui-focused fieldset': { borderColor: '#F4D03F' },
+                },
+                '& .MuiInputLabel-root': { color: '#F4D03F99' },
+                '& .MuiInputLabel-root.Mui-focused': { color: '#F4D03F' },
+              }}
+            />
+          </Grid>
+        </Grid>
+        <Box sx={{ display: 'flex', gap: 2 }}>
           <Button
             variant="contained"
             startIcon={<SearchIcon />}

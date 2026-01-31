@@ -6,6 +6,8 @@ import Loading from "./components/Loading";
 import HomePage from "./pages/HomePage";
 import AdminLayout from "./components/admin/AdminLayout";
 import AdminDashboard from "./components/admin/AdminDashboard";
+import AccountManager from "./components/admin/AccountManager";
+import VenueManager from "./components/admin/VenueManager";
 import PlaylistManager from "./components/admin/PlaylistManager";
 import SongManager from "./components/admin/SongManager";
 import UserManager from "./components/admin/UserManager";
@@ -57,6 +59,8 @@ export default function App() {
             }
           >
             <Route index element={<AdminDashboard />} />
+            <Route path="accounts" element={<AccountManager />} />
+            <Route path="venues" element={<VenueManager />} />
             <Route path="playlists" element={<PlaylistManager />} />
             <Route path="songs" element={<SongManager />} />
             <Route path="users" element={<UserManager />} />

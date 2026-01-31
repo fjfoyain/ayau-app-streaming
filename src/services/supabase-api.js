@@ -646,3 +646,325 @@ export const getSignedUrl = async (filePath, expires = 3600) => {
   }
   return data.signedUrl
 }
+
+// ================================================
+// ACCOUNT (CLIENT) MANAGEMENT
+// ================================================
+
+/**
+ * Obtener todas las cuentas/clientes
+ */
+export const getAllAccounts = async () => {
+  const { data, error } = await supabase
+    .from('clients')
+    .select('*')
+    .order('name')
+
+  if (error) {
+    console.error('Error fetching accounts:', error)
+    throw error
+  }
+  return data
+}
+
+/**
+ * Crear nueva cuenta/cliente
+ */
+export const createAccount = async (accountData) => {
+  const { data, error } = await supabase
+    .from('clients')
+    .insert({
+      name: accountData.name,
+      contact_email: accountData.contact_email,
+      contact_phone: accountData.contact_phone,
+      tax_id: accountData.tax_id,
+      is_active: accountData.is_active ?? true
+    })
+    .select()
+    .single()
+
+  if (error) {
+    console.error('Error creating account:', error)
+    throw error
+  }
+  return data
+}
+
+/**
+ * Actualizar cuenta/cliente
+ */
+export const updateAccount = async (accountId, updates) => {
+  const { data, error } = await supabase
+    .from('clients')
+    .update(updates)
+    .eq('id', accountId)
+    .select()
+    .single()
+
+  if (error) {
+    console.error('Error updating account:', error)
+    throw error
+  }
+  return data
+}
+
+/**
+ * Eliminar cuenta/cliente
+ */
+export const deleteAccount = async (accountId) => {
+  const { error } = await supabase
+    .from('clients')
+    .delete()
+    .eq('id', accountId)
+
+  if (error) {
+    console.error('Error deleting account:', error)
+    throw error
+  }
+}
+
+/**
+ * Obtener cuentas con estadísticas (venues count, plays, etc.)
+ */
+export const getAccountsWithStats = async () => {
+  const { data, error } = await supabase
+    .from('analytics_by_account')
+    .select('*')
+    .order('account_name')
+
+  if (error) {
+    console.error('Error fetching accounts with stats:', error)
+    throw error
+  }
+  return data
+}
+
+// ================================================
+// VENUE (LOCATION) MANAGEMENT
+// ================================================
+
+/**
+ * Obtener todos los locales/venues
+ */
+export const getAllVenues = async () => {
+  const { data, error } = await supabase
+    .from('locations')
+    .select(`
+      *,
+      clients (
+        id,
+        name
+      )
+    `)
+    .order('name')
+
+  if (error) {
+    console.error('Error fetching venues:', error)
+    throw error
+  }
+  return data
+}
+
+/**
+ * Obtener venues de una cuenta específica
+ */
+export const getVenuesForAccount = async (accountId) => {
+  const { data, error } = await supabase
+    .from('locations')
+    .select('*')
+    .eq('client_id', accountId)
+    .order('name')
+
+  if (error) {
+    console.error('Error fetching venues for account:', error)
+    throw error
+  }
+  return data
+}
+
+/**
+ * Crear nuevo local/venue
+ */
+export const createVenue = async (venueData) => {
+  const { data, error } = await supabase
+    .from('locations')
+    .insert({
+      client_id: venueData.client_id,
+      name: venueData.name,
+      address: venueData.address,
+      city: venueData.city,
+      country_code: venueData.country_code || 'GT',
+      is_active: venueData.is_active ?? true
+    })
+    .select()
+    .single()
+
+  if (error) {
+    console.error('Error creating venue:', error)
+    throw error
+  }
+  return data
+}
+
+/**
+ * Actualizar local/venue
+ */
+export const updateVenue = async (venueId, updates) => {
+  const { data, error } = await supabase
+    .from('locations')
+    .update(updates)
+    .eq('id', venueId)
+    .select()
+    .single()
+
+  if (error) {
+    console.error('Error updating venue:', error)
+    throw error
+  }
+  return data
+}
+
+/**
+ * Eliminar local/venue
+ */
+export const deleteVenue = async (venueId) => {
+  const { error } = await supabase
+    .from('locations')
+    .delete()
+    .eq('id', venueId)
+
+  if (error) {
+    console.error('Error deleting venue:', error)
+    throw error
+  }
+}
+
+/**
+ * Obtener venues con estadísticas
+ */
+export const getVenuesWithStats = async () => {
+  const { data, error } = await supabase
+    .from('analytics_by_venue')
+    .select('*')
+    .order('account_name', 'venue_name')
+
+  if (error) {
+    console.error('Error fetching venues with stats:', error)
+    throw error
+  }
+  return data
+}
+
+// ================================================
+// USER MANAGEMENT UPDATES (access levels)
+// ================================================
+
+/**
+ * Crear usuario con nivel de acceso (account o location)
+ */
+export const createUserWithAccess = async (userData) => {
+  // First create the auth user
+  const { data, error } = await supabase.auth.signUp({
+    email: userData.email,
+    password: userData.password || generateRandomPassword(),
+    options: {
+      data: {
+        full_name: userData.full_name,
+        role: userData.role || 'user'
+      },
+      emailRedirectTo: window.location.origin
+    }
+  })
+
+  if (error) {
+    console.error('Error creating user:', error)
+    throw error
+  }
+
+  // Wait for profile to be created by trigger
+  await new Promise(resolve => setTimeout(resolve, 1000))
+
+  // Update profile with access level and account/venue assignment
+  const profileUpdates = {
+    access_level: userData.access_level || 'location'
+  }
+
+  if (userData.access_level === 'account') {
+    profileUpdates.client_id = userData.client_id
+    profileUpdates.location_id = null
+  } else {
+    profileUpdates.location_id = userData.location_id
+    // Optionally clear client_id for clarity
+    profileUpdates.client_id = null
+  }
+
+  await updateUserProfile(data.user.id, profileUpdates)
+
+  return data.user
+}
+
+/**
+ * Obtener detalles de acceso de un usuario
+ */
+export const getUserAccessDetails = async (userId) => {
+  const { data, error } = await supabase
+    .from('user_access_summary')
+    .select('*')
+    .eq('user_id', userId)
+    .single()
+
+  if (error) {
+    console.error('Error fetching user access details:', error)
+    throw error
+  }
+  return data
+}
+
+// ================================================
+// ANALYTICS UPDATES (account/venue filtering)
+// ================================================
+
+/**
+ * Obtener analytics por cuenta
+ */
+export const getAnalyticsByAccount = async (accountId = null) => {
+  let query = supabase
+    .from('analytics_by_account')
+    .select('*')
+
+  if (accountId) {
+    query = query.eq('account_id', accountId)
+  }
+
+  const { data, error } = await query.order('account_name')
+
+  if (error) {
+    console.error('Error fetching analytics by account:', error)
+    throw error
+  }
+  return data
+}
+
+/**
+ * Obtener analytics por venue
+ */
+export const getAnalyticsByVenue = async (accountId = null, venueId = null) => {
+  let query = supabase
+    .from('analytics_by_venue')
+    .select('*')
+
+  if (accountId) {
+    query = query.eq('account_id', accountId)
+  }
+  if (venueId) {
+    query = query.eq('venue_id', venueId)
+  }
+
+  const { data, error } = await query.order('account_name', 'venue_name')
+
+  if (error) {
+    console.error('Error fetching analytics by venue:', error)
+    throw error
+  }
+  return data
+}
