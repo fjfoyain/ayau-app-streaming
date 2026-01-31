@@ -244,11 +244,11 @@ export default function HomePage({ session }) {
           {state.currentSong ? (
             <div className="flex flex-col items-center w-full max-w-4xl">
               {/* Large Cover Art - Responsive */}
-              <div className="w-full max-w-[90vw] md:max-w-md lg:max-w-lg xl:max-w-xl aspect-square mb-4 md:mb-8 rounded-2xl md:rounded-3xl overflow-hidden border-2 md:border-4 border-ayau-gold shadow-2xl shadow-ayau-gold/20">
+              <div className="w-full max-w-[85vw] sm:max-w-[75vw] md:max-w-md lg:max-w-lg xl:max-w-xl aspect-square mb-4 md:mb-8 rounded-2xl md:rounded-3xl overflow-hidden border-2 md:border-4 border-ayau-gold shadow-2xl shadow-ayau-gold/20 bg-black">
                 <img
                   src={state.currentSong.coverImage || "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Crect width='300' height='300' fill='%23000'/%3E%3Ctext x='150' y='150' font-family='Arial' font-size='60' fill='%23F4D03F' text-anchor='middle' dominant-baseline='middle'%3E%E2%99%AB%3C/text%3E%3C/svg%3E"}
                   alt={state.currentSong.title}
-                  className="w-full h-full object-cover"
+                  className="w-full h-full object-contain"
                 />
               </div>
 

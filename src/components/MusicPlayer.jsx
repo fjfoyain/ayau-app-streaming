@@ -201,27 +201,27 @@ export default function MusicPlayer() {
 
         // Create and connect analyser only once per audio element
         if (!analyserRef.current) {
-          try {
-            const analyser = audioCtx.createAnalyser();
-            analyser.fftSize = 256;
-            analyser.smoothingTimeConstant = 0.8;
+          const analyser = audioCtx.createAnalyser();
+          analyser.fftSize = 256;
+          analyser.smoothingTimeConstant = 0.8;
 
+          try {
             const source = audioCtx.createMediaElementSource(audio);
             source.connect(analyser);
             analyser.connect(audioCtx.destination);
-
-            analyserRef.current = analyser;
           } catch (e) {
-            // MediaElementSource already exists - this is expected on hot reload
-            if (!analyserRef.current) {
-              console.warn('Could not create audio source:', e.message);
-              return;
-            }
+            // MediaElementSource already exists (hot reload) - analyser still works
+            console.log('Audio source already connected');
           }
+
+          analyserRef.current = analyser;
         }
 
         const analyser = analyserRef.current;
-        if (!analyser) return;
+        if (!analyser) {
+          console.error('Analyser not available');
+          return;
+        }
 
         const bufferLength = analyser.frequencyBinCount;
         const dataArray = new Uint8Array(bufferLength);
