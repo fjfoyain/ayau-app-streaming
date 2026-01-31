@@ -75,6 +75,15 @@ export const PlayerProvider = ({ children }) => {
 
     const setupAndPlay = async () => {
       try {
+        // Detect if we're switching to a different song
+        const isSwitchingSongs = sessionSongIdRef.current !== null && sessionSongIdRef.current !== state.currentSong.id;
+
+        // Clear resume position for previous song when switching
+        if (isSwitchingSongs) {
+          const prevKey = `resume_${sessionSongIdRef.current}`;
+          localStorage.removeItem(prevKey);
+        }
+
         let url = state.currentSong.url || '';
         // If URL is not an http(s) URL, create signed URL (and check cache)
         if (url && !/^https?:\/\//i.test(url)) {
@@ -92,10 +101,10 @@ export const PlayerProvider = ({ children }) => {
         audio.src = url;
         audio.load();
 
-        // Apply resume position ONLY if same song in session (not after switching)
+        // Apply resume position ONLY if NOT switching songs (pause/resume or page reload)
         const onLoaded = () => {
           try {
-            if (sessionSongIdRef.current === state.currentSong.id) {
+            if (!isSwitchingSongs) {
               const key = `resume_${state.currentSong.id}`;
               const stored = localStorage.getItem(key);
               if (stored) {
