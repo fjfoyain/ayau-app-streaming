@@ -25,6 +25,7 @@ import StoreIcon from '@mui/icons-material/Store';
 import Button from '@mui/material/Button';
 import { supabase } from '../../lib/supabase';
 import { getUserRole } from '../../services/supabase-api';
+import ayauLogo from '../../assets/ayau-wordmark.png';
 
 const drawerWidth = 280;
 
@@ -79,10 +80,13 @@ export default function AdminLayout() {
 
   const drawer = (
     <div className="h-full flex flex-col bg-black">
-      <Toolbar sx={{ borderBottom: '2px solid #F4D03F' }}>
-        <Typography variant="h5" noWrap component="div" sx={{ color: '#F4D03F', fontWeight: 'bold' }}>
-          AYAU Admin
-        </Typography>
+      <Toolbar sx={{ borderBottom: '2px solid #F4D03F', py: 2, justifyContent: 'center' }}>
+        <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.5 }}>
+          <img src={ayauLogo} alt="AYAU" style={{ height: 36 }} />
+          <Typography variant="caption" sx={{ color: '#F4D03F66', fontWeight: 'bold', letterSpacing: 2 }}>
+            ADMIN
+          </Typography>
+        </Box>
       </Toolbar>
       <Divider sx={{ borderColor: '#F4D03F44' }} />
       <List sx={{ flexGrow: 1, pt: 2 }}>
@@ -184,9 +188,12 @@ export default function AdminLayout() {
           >
             <MenuIcon />
           </IconButton>
-          <Typography variant="h6" noWrap component="div" sx={{ color: '#F4D03F' }}>
-            AYAU Admin
-          </Typography>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+            <img src={ayauLogo} alt="AYAU" style={{ height: 24 }} />
+            <Typography variant="caption" sx={{ color: '#F4D03F66', fontWeight: 'bold', letterSpacing: 2 }}>
+              ADMIN
+            </Typography>
+          </Box>
         </Toolbar>
       </AppBar>
 
