@@ -37,7 +37,6 @@ import {
   createVenue,
   updateVenue,
   deleteVenue,
-  getVenuesWithStats,
 } from '../../services/supabase-api';
 
 export default function VenueManager() {
@@ -71,7 +70,7 @@ export default function VenueManager() {
     setLoading(true);
     try {
       const [venuesData, accountsData] = await Promise.all([
-        getVenuesWithStats(),
+        getAllVenues(),
         getAllAccounts(),
       ]);
       setVenues(venuesData || []);
@@ -90,7 +89,7 @@ export default function VenueManager() {
       if (selectedAccountFilter) {
         venuesData = await getVenuesForAccount(selectedAccountFilter);
       } else {
-        venuesData = await getVenuesWithStats();
+        venuesData = await getAllVenues();
       }
       setVenues(venuesData || []);
     } catch (error) {

@@ -652,19 +652,28 @@ export const getSignedUrl = async (filePath, expires = 3600) => {
 // ================================================
 
 /**
- * Obtener todas las cuentas/clientes
+ * Obtener todas las cuentas/clientes con conteo de locales
  */
 export const getAllAccounts = async () => {
   const { data, error } = await supabase
     .from('clients')
-    .select('*')
+    .select(`
+      *,
+      locations (id)
+    `)
     .order('name')
 
   if (error) {
     console.error('Error fetching accounts:', error)
     throw error
   }
-  return data
+
+  // Add venue_count from the locations array
+  return data.map(account => ({
+    ...account,
+    venue_count: account.locations?.length || 0,
+    locations: undefined // Remove the locations array from the response
+  }))
 }
 
 /**

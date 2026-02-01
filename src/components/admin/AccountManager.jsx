@@ -30,7 +30,6 @@ import {
   createAccount,
   updateAccount,
   deleteAccount,
-  getAccountsWithStats,
 } from '../../services/supabase-api';
 
 export default function AccountManager() {
@@ -56,7 +55,7 @@ export default function AccountManager() {
   const fetchAccounts = async () => {
     setLoading(true);
     try {
-      const data = await getAccountsWithStats();
+      const data = await getAllAccounts();
       setAccounts(data || []);
     } catch (error) {
       console.error('Error fetching accounts:', error);
