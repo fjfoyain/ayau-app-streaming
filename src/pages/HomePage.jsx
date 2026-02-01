@@ -12,6 +12,7 @@ import CloseIcon from '@mui/icons-material/Close';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import CircularProgress from '@mui/material/CircularProgress';
 import { usePlayer } from "../context/PlayerContext";
+import ayauLogo from "../assets/ayau-wordmark.png";
 
 // Utility function to shuffle array
 const shuffleArray = (array) => {
@@ -124,10 +125,8 @@ export default function HomePage({ session }) {
           >
             <MenuIcon fontSize="large" />
           </IconButton>
-          <h1 className="text-3xl lg:text-4xl font-bold text-ayau-gold tracking-tight">
-            AYAU
-          </h1>
-          <span className="text-sm text-ayau-gold/80 hidden lg:block">
+          <img src={ayauLogo} alt="AYAU" className="h-8 lg:h-10" />
+          <span className="text-sm text-ayau-gold/60 hidden lg:block tracking-wider">
             MÚSICA, ON FIRE
           </span>
         </div>

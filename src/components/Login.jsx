@@ -6,7 +6,7 @@ import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import Paper from '@mui/material/Paper';
 import Alert from '@mui/material/Alert';
-import MusicNoteIcon from '@mui/icons-material/MusicNote';
+import ayauLogo from '../assets/ayau-wordmark.png';
 
 export default function Login() {
   const [email, setEmail] = useState('');
@@ -58,24 +58,14 @@ export default function Login() {
       >
         {/* Logo and Title */}
         <Box sx={{ textAlign: 'center', mb: 4 }}>
-          <MusicNoteIcon sx={{ fontSize: 60, color: '#F4D03F', mb: 2 }} />
-          <Typography
-            variant="h3"
-            sx={{
-              color: '#F4D03F',
-              fontWeight: 'bold',
-              mb: 1,
-              letterSpacing: 2,
-            }}
-          >
-            AYAU
-          </Typography>
+          <img src={ayauLogo} alt="AYAU" style={{ height: 60, marginBottom: 16 }} />
           <Typography
             variant="subtitle1"
             sx={{
-              color: '#F4D03F99',
+              color: '#F4D03F66',
               fontStyle: 'italic',
-              fontSize: '1.1rem',
+              fontSize: '1rem',
+              letterSpacing: 2,
             }}
           >
             MÚSICA, ON FIRE
