@@ -46,39 +46,38 @@ export default function App() {
         {/* Public routes (no authentication required) */}
         <Route path="/password-reset" element={<PasswordReset />} />
 
-        {/* Protected routes (authentication required) */}
-        {!session ? (
-          <Route path="*" element={<Login />} />
-        ) : (
-          <PlayerProvider>
-            <SyncPlaybackProvider>
-              <Routes>
-                {/* Public Routes (authenticated users) */}
-                <Route path="/" element={<HomePage session={session} />} />
+        {/* Authentication required routes */}
+        {session ? (
+          <>
+            <Route path="/" element={<PlayerProvider><SyncPlaybackProvider><HomePage session={session} /></SyncPlaybackProvider></PlayerProvider>} />
 
-                {/* Admin Routes (protected) */}
-                <Route
-                  path="/admin"
-                  element={
+            {/* Admin Routes (protected) */}
+            <Route
+              path="/admin"
+              element={
+                <PlayerProvider>
+                  <SyncPlaybackProvider>
                     <ProtectedAdminRoute>
                       <AdminLayout />
                     </ProtectedAdminRoute>
-                  }
-                >
-                  <Route index element={<AdminDashboard />} />
-                  <Route path="accounts" element={<AccountManager />} />
-                  <Route path="venues" element={<VenueManager />} />
-                  <Route path="playlists" element={<PlaylistManager />} />
-                  <Route path="songs" element={<SongManager />} />
-                  <Route path="users" element={<UserManager />} />
-                  <Route path="analytics" element={<AnalyticsDashboard />} />
-                </Route>
+                  </SyncPlaybackProvider>
+                </PlayerProvider>
+              }
+            >
+              <Route index element={<AdminDashboard />} />
+              <Route path="accounts" element={<AccountManager />} />
+              <Route path="venues" element={<VenueManager />} />
+              <Route path="playlists" element={<PlaylistManager />} />
+              <Route path="songs" element={<SongManager />} />
+              <Route path="users" element={<UserManager />} />
+              <Route path="analytics" element={<AnalyticsDashboard />} />
+            </Route>
 
-                {/* Catch all - redirect to home */}
-                <Route path="*" element={<Navigate to="/" replace />} />
-              </Routes>
-            </SyncPlaybackProvider>
-          </PlayerProvider>
+            {/* Catch all - redirect to home */}
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </>
+        ) : (
+          <Route path="*" element={<Login />} />
         )}
       </Routes>
     </Router>
