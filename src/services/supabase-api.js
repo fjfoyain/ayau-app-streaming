@@ -1035,8 +1035,8 @@ export const getCurrentUserProfile = async () => {
     .from('user_profiles')
     .select(`
       *,
-      clients (*),
-      locations (*, clients (*))
+      clients!client_id (*),
+      locations!location_id (*, clients!client_id (*))
     `)
     .eq('id', user.id)
     .single()
