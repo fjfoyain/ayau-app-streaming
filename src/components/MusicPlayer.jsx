@@ -14,6 +14,7 @@ import { formatTime } from '../utils/musicPlayer';
 import { usePlayer } from "../context/PlayerContext";
 import { supabase } from '../lib/supabase';
 import { recordPlay } from '../services/supabase-api';
+import SyncStatusIndicator from './SyncStatusIndicator';
 
 export default function MusicPlayer() {
   const { state, dispatch } = usePlayer();
@@ -365,9 +366,12 @@ export default function MusicPlayer() {
             <Typography noWrap fontWeight="bold" sx={{ color: '#F4D03F', fontSize: '1.1rem' }}>
               {state?.currentSong?.title || 'Unknown Title'}
             </Typography>
-            <Typography noWrap variant="body2" sx={{ color: '#F4D03F99', fontSize: '0.9rem' }}>
-              {state?.currentSong?.performer || 'Unknown Artist'}
-            </Typography>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <Typography noWrap variant="body2" sx={{ color: '#F4D03F99', fontSize: '0.9rem', flex: 1 }}>
+                {state?.currentSong?.performer || 'Unknown Artist'}
+              </Typography>
+              <SyncStatusIndicator compact />
+            </Box>
           </Box>
         </Box>
 
