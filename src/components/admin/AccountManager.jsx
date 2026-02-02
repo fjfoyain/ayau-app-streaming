@@ -15,7 +15,11 @@ import DialogTitle from '@mui/material/DialogTitle';
 import DialogContent from '@mui/material/DialogContent';
 import DialogActions from '@mui/material/DialogActions';
 import TextField from '@mui/material/TextField';
+import FormControl from '@mui/material/FormControl';
 import FormControlLabel from '@mui/material/FormControlLabel';
+import InputLabel from '@mui/material/InputLabel';
+import Select from '@mui/material/Select';
+import MenuItem from '@mui/material/MenuItem';
 import Switch from '@mui/material/Switch';
 import CircularProgress from '@mui/material/CircularProgress';
 import Chip from '@mui/material/Chip';
@@ -25,6 +29,7 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import BusinessIcon from '@mui/icons-material/Business';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import CancelIcon from '@mui/icons-material/Cancel';
+import SyncIcon from '@mui/icons-material/Sync';
 import {
   getAllAccounts,
   createAccount,
@@ -45,6 +50,7 @@ export default function AccountManager() {
     contact_email: '',
     contact_phone: '',
     tax_id: '',
+    playback_mode: 'independent',
     is_active: true,
   });
 
@@ -72,6 +78,7 @@ export default function AccountManager() {
       contact_email: '',
       contact_phone: '',
       tax_id: '',
+      playback_mode: 'independent',
       is_active: true,
     });
     setDialogOpen(true);
@@ -84,6 +91,7 @@ export default function AccountManager() {
       contact_email: account.contact_email || '',
       contact_phone: account.contact_phone || '',
       tax_id: account.tax_id || '',
+      playback_mode: account.playback_mode || 'independent',
       is_active: account.is_active !== false,
     });
     setDialogOpen(true);
@@ -97,6 +105,7 @@ export default function AccountManager() {
       contact_email: '',
       contact_phone: '',
       tax_id: '',
+      playback_mode: 'independent',
       is_active: true,
     });
   };
@@ -364,6 +373,69 @@ export default function AccountManager() {
                 '& .MuiInputLabel-root.Mui-focused': { color: '#F4D03F' },
               }}
             />
+
+            {/* Playback Mode Selector */}
+            <FormControl
+              fullWidth
+              sx={{
+                '& .MuiOutlinedInput-root': {
+                  color: '#F4D03F',
+                  '& fieldset': { borderColor: '#F4D03F44' },
+                  '&:hover fieldset': { borderColor: '#F4D03F' },
+                  '&.Mui-focused fieldset': { borderColor: '#F4D03F' },
+                },
+                '& .MuiInputLabel-root': { color: '#F4D03F99' },
+                '& .MuiInputLabel-root.Mui-focused': { color: '#F4D03F' },
+                '& .MuiSvgIcon-root': { color: '#F4D03F' },
+              }}
+            >
+              <InputLabel>Modo de Reproducción</InputLabel>
+              <Select
+                value={formData.playback_mode}
+                onChange={(e) => setFormData({ ...formData, playback_mode: e.target.value })}
+                label="Modo de Reproducción"
+                startAdornment={<SyncIcon sx={{ mr: 1, color: '#F4D03F99' }} />}
+                MenuProps={{
+                  PaperProps: {
+                    sx: {
+                      backgroundColor: '#000',
+                      border: '2px solid #F4D03F',
+                      '& .MuiMenuItem-root': {
+                        color: '#F4D03F',
+                        '&:hover': { backgroundColor: '#F4D03F22' },
+                        '&.Mui-selected': { backgroundColor: '#F4D03F33' },
+                      },
+                    },
+                  },
+                }}
+              >
+                <MenuItem value="independent">
+                  <Box>
+                    <Typography variant="body1">Independiente</Typography>
+                    <Typography variant="caption" sx={{ color: '#F4D03F66' }}>
+                      Cada local controla su propia música
+                    </Typography>
+                  </Box>
+                </MenuItem>
+                <MenuItem value="shared_playlist">
+                  <Box>
+                    <Typography variant="body1">Playlist Compartida</Typography>
+                    <Typography variant="caption" sx={{ color: '#F4D03F66' }}>
+                      Mismas playlists, reproducción libre
+                    </Typography>
+                  </Box>
+                </MenuItem>
+                <MenuItem value="synchronized">
+                  <Box>
+                    <Typography variant="body1">Sincronizado</Typography>
+                    <Typography variant="caption" sx={{ color: '#F4D03F66' }}>
+                      Un admin controla toda la reproducción
+                    </Typography>
+                  </Box>
+                </MenuItem>
+              </Select>
+            </FormControl>
+
             <FormControlLabel
               control={
                 <Switch

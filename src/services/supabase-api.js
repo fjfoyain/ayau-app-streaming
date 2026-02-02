@@ -977,3 +977,246 @@ export const getAnalyticsByVenue = async (accountId = null, venueId = null) => {
   }
   return data
 }
+
+// ================================================
+// SYNCHRONIZED PLAYBACK
+// ================================================
+
+/**
+ * Obtener el perfil completo del usuario actual con info de cliente/local
+ */
+export const getCurrentUserProfile = async () => {
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return null
+
+  const { data, error } = await supabase
+    .from('user_profiles')
+    .select(`
+      *,
+      clients (*),
+      locations (*, clients (*))
+    `)
+    .eq('id', user.id)
+    .single()
+
+  if (error) {
+    console.error('Error fetching user profile:', error)
+    return null
+  }
+  return data
+}
+
+/**
+ * Obtener el client_id del usuario actual
+ * Para usuarios account-level: devuelve su client_id
+ * Para usuarios location-level: devuelve el client_id de su location
+ */
+export const getCurrentUserClientId = async () => {
+  const profile = await getCurrentUserProfile()
+  if (!profile) return null
+
+  if (profile.access_level === 'account' && profile.client_id) {
+    return profile.client_id
+  } else if (profile.location_id && profile.locations) {
+    return profile.locations.client_id
+  }
+  return null
+}
+
+/**
+ * Obtener el modo de reproducción de una cuenta
+ */
+export const getClientPlaybackMode = async (clientId) => {
+  const { data, error } = await supabase
+    .from('clients')
+    .select('playback_mode')
+    .eq('id', clientId)
+    .single()
+
+  if (error) {
+    console.error('Error fetching playback mode:', error)
+    return 'independent'
+  }
+  return data?.playback_mode || 'independent'
+}
+
+/**
+ * Actualizar el modo de reproducción de una cuenta
+ */
+export const updateClientPlaybackMode = async (clientId, playbackMode) => {
+  const { error } = await supabase
+    .from('clients')
+    .update({ playback_mode: playbackMode })
+    .eq('id', clientId)
+
+  if (error) {
+    console.error('Error updating playback mode:', error)
+    throw error
+  }
+}
+
+/**
+ * Obtener o crear sesión de reproducción para una cuenta
+ */
+export const ensurePlaybackSession = async (clientId) => {
+  // Intentar obtener sesión existente
+  const { data: existing } = await supabase
+    .from('playback_sessions')
+    .select('*')
+    .eq('client_id', clientId)
+    .single()
+
+  if (existing) return existing
+
+  // Crear nueva sesión si no existe
+  const { data, error } = await supabase
+    .from('playback_sessions')
+    .insert({
+      client_id: clientId,
+      playback_state: 'stopped',
+      is_centralized: false
+    })
+    .select()
+    .single()
+
+  if (error) {
+    console.error('Error creating playback session:', error)
+    throw error
+  }
+  return data
+}
+
+/**
+ * Obtener la sesión de reproducción actual de una cuenta
+ */
+export const getPlaybackSessionByClient = async (clientId) => {
+  const { data, error } = await supabase
+    .from('playback_sessions')
+    .select(`
+      *,
+      songs (*),
+      playlists (*),
+      controller:controlled_by (
+        id,
+        full_name
+      )
+    `)
+    .eq('client_id', clientId)
+    .single()
+
+  if (error && error.code !== 'PGRST116') {
+    console.error('Error fetching playback session:', error)
+    throw error
+  }
+  return data
+}
+
+/**
+ * Broadcast estado de reproducción (para modo sincronizado)
+ */
+export const broadcastPlaybackState = async (clientId, updates) => {
+  const { data: { user } } = await supabase.auth.getUser()
+
+  const { error } = await supabase
+    .from('playback_sessions')
+    .update({
+      ...updates,
+      controlled_by: user?.id,
+      sequence_number: Date.now(),
+      updated_at: new Date().toISOString()
+    })
+    .eq('client_id', clientId)
+
+  if (error) {
+    console.error('Error broadcasting playback state:', error)
+    throw error
+  }
+}
+
+/**
+ * Tomar control de la reproducción sincronizada
+ */
+export const takePlaybackControl = async (clientId) => {
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error('User not authenticated')
+
+  const { error } = await supabase
+    .from('playback_sessions')
+    .update({
+      controlled_by: user.id,
+      controller_heartbeat: new Date().toISOString(),
+      is_centralized: true,
+      sequence_number: Date.now()
+    })
+    .eq('client_id', clientId)
+
+  if (error) {
+    console.error('Error taking control:', error)
+    throw error
+  }
+}
+
+/**
+ * Soltar control de la reproducción sincronizada
+ */
+export const releasePlaybackControl = async (clientId) => {
+  const { error } = await supabase
+    .from('playback_sessions')
+    .update({
+      controlled_by: null,
+      is_centralized: false
+    })
+    .eq('client_id', clientId)
+
+  if (error) {
+    console.error('Error releasing control:', error)
+    throw error
+  }
+}
+
+/**
+ * Suscribirse a cambios en la sesión de reproducción (mejorada)
+ */
+export const subscribeToPlaybackSessionEnhanced = (clientId, callback) => {
+  return supabase
+    .channel(`playback-sync-${clientId}`)
+    .on(
+      'postgres_changes',
+      {
+        event: '*',
+        schema: 'public',
+        table: 'playback_sessions',
+        filter: `client_id=eq.${clientId}`
+      },
+      (payload) => {
+        callback(payload.new, payload.old, payload.eventType)
+      }
+    )
+    .subscribe()
+}
+
+/**
+ * Verificar si el usuario actual puede controlar la reproducción de una cuenta
+ */
+export const canControlPlayback = async (clientId) => {
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return false
+
+  const { data, error } = await supabase
+    .from('user_profiles')
+    .select('role, access_level, client_id')
+    .eq('id', user.id)
+    .single()
+
+  if (error || !data) return false
+
+  // Platform admins can control any account
+  if (data.role === 'admin') return true
+
+  // Account managers can control their own account
+  if (data.role === 'manager' && data.access_level === 'account' && data.client_id === clientId) {
+    return true
+  }
+
+  return false
+}

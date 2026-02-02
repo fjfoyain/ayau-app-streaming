@@ -55,6 +55,38 @@ const playerReducer = (state, action) => {
       // Navigation actions will update currentSong; actual playback handled by effect
       return { ...state, currentSong: action.payload, isPlaying: true, currentPlaylist: (state.currentPlaylist ? { ...state.currentPlaylist, songIndex: state.currentPlaylist.playlist.findIndex(s => s.id === action.payload.id) } : null) };
 
+    // Sync playback actions (for synchronized mode across venues)
+    case "SYNC_APPLY_SONG":
+      // Apply song from remote sync without triggering broadcast
+      return {
+        ...state,
+        currentSong: action.payload,
+        isPlaying: true,
+        _syncApplied: true // Flag to prevent broadcast loop
+      };
+
+    case "SYNC_PLAY":
+      // Remote play command
+      if (state.audio.src) {
+        state.audio.play().catch(console.error);
+      }
+      return { ...state, isPlaying: true, _syncApplied: true };
+
+    case "SYNC_PAUSE":
+      // Remote pause command
+      state.audio.pause();
+      return { ...state, isPlaying: false, _syncApplied: true };
+
+    case "SYNC_SEEK":
+      // Remote seek command
+      if (state.audio.src) {
+        state.audio.currentTime = action.payload;
+      }
+      return { ...state, _syncApplied: true };
+
+    case "CLEAR_SYNC_FLAG":
+      return { ...state, _syncApplied: false };
+
     default:
       return state;
   }

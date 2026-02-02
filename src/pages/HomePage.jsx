@@ -12,6 +12,7 @@ import CloseIcon from '@mui/icons-material/Close';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import CircularProgress from '@mui/material/CircularProgress';
 import { usePlayer } from "../context/PlayerContext";
+import DJModePanel from "../components/DJModePanel";
 import ayauLogo from "../assets/ayau-wordmark.png";
 
 // Utility function to shuffle array
@@ -113,6 +114,9 @@ export default function HomePage({ session }) {
 
   return (
     <div className="flex flex-col h-screen bg-black">
+      {/* DJ Mode Panel (floating) */}
+      <DJModePanel />
+
       {/* Header */}
       <header className="p-4 bg-black border-b-2 border-ayau-gold flex justify-between items-center z-50">
         <div className="flex items-center gap-4">

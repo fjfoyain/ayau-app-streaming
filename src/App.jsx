@@ -14,6 +14,7 @@ import UserManager from "./components/admin/UserManager";
 import AnalyticsDashboard from "./components/admin/AnalyticsDashboard";
 import ProtectedAdminRoute from "./components/admin/ProtectedAdminRoute";
 import { PlayerProvider } from "./context/PlayerContext";
+import { SyncPlaybackProvider } from "./context/SyncPlaybackContext";
 
 export default function App() {
   const [session, setSession] = useState(null);
@@ -44,8 +45,9 @@ export default function App() {
 
   return (
     <PlayerProvider>
-      <Router>
-        <Routes>
+      <SyncPlaybackProvider>
+        <Router>
+          <Routes>
           {/* Public Routes (authenticated users) */}
           <Route path="/" element={<HomePage session={session} />} />
 
@@ -69,8 +71,9 @@ export default function App() {
 
           {/* Catch all - redirect to home */}
           <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
-      </Router>
+          </Routes>
+        </Router>
+      </SyncPlaybackProvider>
     </PlayerProvider>
   );
 }
