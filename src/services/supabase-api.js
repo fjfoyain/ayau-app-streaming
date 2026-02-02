@@ -680,20 +680,40 @@ export const getAllAccounts = async () => {
  * Crear nueva cuenta/cliente
  */
 export const createAccount = async (accountData) => {
+  // Build insert object - only include owner_id if provided and column exists
+  const insertData = {
+    name: accountData.name,
+    contact_phone: accountData.contact_phone,
+    tax_id: accountData.tax_id,
+    is_active: accountData.is_active ?? true
+  }
+
+  // Add optional fields if provided
+  if (accountData.owner_id) insertData.owner_id = accountData.owner_id
+  if (accountData.playback_mode) insertData.playback_mode = accountData.playback_mode
+
   const { data, error } = await supabase
     .from('clients')
-    .insert({
-      name: accountData.name,
-      owner_id: accountData.owner_id || null,
-      contact_phone: accountData.contact_phone,
-      tax_id: accountData.tax_id,
-      playback_mode: accountData.playback_mode || 'independent',
-      is_active: accountData.is_active ?? true
-    })
+    .insert(insertData)
     .select()
     .single()
 
   if (error) {
+    // If error is about owner_id column, retry without it
+    if (error.message?.includes('owner_id')) {
+      const { owner_id, ...dataWithoutOwner } = insertData
+      const { data: retryData, error: retryError } = await supabase
+        .from('clients')
+        .insert(dataWithoutOwner)
+        .select()
+        .single()
+
+      if (retryError) {
+        console.error('Error creating account:', retryError)
+        throw retryError
+      }
+      return retryData
+    }
     console.error('Error creating account:', error)
     throw error
   }
@@ -796,21 +816,41 @@ export const getVenuesForAccount = async (accountId) => {
  * Crear nuevo local/venue
  */
 export const createVenue = async (venueData) => {
+  // Build insert object - only include manager_id if provided and column exists
+  const insertData = {
+    client_id: venueData.client_id,
+    name: venueData.name,
+    address: venueData.address,
+    city: venueData.city,
+    country_code: venueData.country_code || 'GT',
+    is_active: venueData.is_active ?? true
+  }
+
+  // Add optional manager_id if provided
+  if (venueData.manager_id) insertData.manager_id = venueData.manager_id
+
   const { data, error } = await supabase
     .from('locations')
-    .insert({
-      client_id: venueData.client_id,
-      manager_id: venueData.manager_id || null,
-      name: venueData.name,
-      address: venueData.address,
-      city: venueData.city,
-      country_code: venueData.country_code || 'GT',
-      is_active: venueData.is_active ?? true
-    })
+    .insert(insertData)
     .select()
     .single()
 
   if (error) {
+    // If error is about manager_id column, retry without it
+    if (error.message?.includes('manager_id')) {
+      const { manager_id, ...dataWithoutManager } = insertData
+      const { data: retryData, error: retryError } = await supabase
+        .from('locations')
+        .insert(dataWithoutManager)
+        .select()
+        .single()
+
+      if (retryError) {
+        console.error('Error creating venue:', retryError)
+        throw retryError
+      }
+      return retryData
+    }
     console.error('Error creating venue:', error)
     throw error
   }
@@ -1205,14 +1245,18 @@ export const canControlPlayback = async (clientId) => {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return false
 
-  // Check if user is the account owner
-  const { data: clientData } = await supabase
-    .from('clients')
-    .select('owner_id')
-    .eq('id', clientId)
-    .single()
+  // Check if user is the account owner (if owner_id column exists)
+  try {
+    const { data: clientData } = await supabase
+      .from('clients')
+      .select('owner_id')
+      .eq('id', clientId)
+      .single()
 
-  if (clientData?.owner_id === user.id) return true
+    if (clientData?.owner_id === user.id) return true
+  } catch {
+    // owner_id column may not exist yet, continue with other checks
+  }
 
   const { data, error } = await supabase
     .from('user_profiles')
@@ -1277,6 +1321,7 @@ export const getActiveUsers = async () => {
  * Obtener cuentas con información del owner
  */
 export const getAllAccountsWithOwner = async () => {
+  // Try with owner first, fallback to basic query if column doesn't exist
   const { data, error } = await supabase
     .from('clients')
     .select(`
@@ -1291,8 +1336,27 @@ export const getAllAccountsWithOwner = async () => {
     .order('name')
 
   if (error) {
-    console.error('Error fetching accounts with owner:', error)
-    throw error
+    // Fallback to basic query if owner_id column doesn't exist yet
+    console.warn('Falling back to basic accounts query:', error.message)
+    const { data: basicData, error: basicError } = await supabase
+      .from('clients')
+      .select(`
+        *,
+        locations (id)
+      `)
+      .order('name')
+
+    if (basicError) {
+      console.error('Error fetching accounts:', basicError)
+      throw basicError
+    }
+
+    return basicData.map(account => ({
+      ...account,
+      venue_count: account.locations?.length || 0,
+      locations: undefined,
+      owner: null
+    }))
   }
 
   return data.map(account => ({
@@ -1306,6 +1370,7 @@ export const getAllAccountsWithOwner = async () => {
  * Obtener locales con información del manager
  */
 export const getAllVenuesWithManager = async () => {
+  // Try with manager first, fallback to basic query if column doesn't exist
   const { data, error } = await supabase
     .from('locations')
     .select(`
@@ -1323,8 +1388,28 @@ export const getAllVenuesWithManager = async () => {
     .order('name')
 
   if (error) {
-    console.error('Error fetching venues with manager:', error)
-    throw error
+    // Fallback to basic query if manager_id column doesn't exist yet
+    console.warn('Falling back to basic venues query:', error.message)
+    const { data: basicData, error: basicError } = await supabase
+      .from('locations')
+      .select(`
+        *,
+        clients (
+          id,
+          name
+        )
+      `)
+      .order('name')
+
+    if (basicError) {
+      console.error('Error fetching venues:', basicError)
+      throw basicError
+    }
+
+    return basicData.map(venue => ({
+      ...venue,
+      manager: null
+    }))
   }
   return data
 }

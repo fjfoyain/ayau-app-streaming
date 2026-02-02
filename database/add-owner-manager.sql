@@ -39,7 +39,9 @@ CREATE INDEX IF NOT EXISTS idx_locations_manager_id ON locations(manager_id);
 -- Drop existing client policies to recreate with owner logic
 DROP POLICY IF EXISTS "Users can view their associated clients" ON clients;
 DROP POLICY IF EXISTS "Admins and managers can update clients" ON clients;
+DROP POLICY IF EXISTS "Owners and admins can update clients" ON clients;
 DROP POLICY IF EXISTS "Admins and managers can insert clients" ON clients;
+DROP POLICY IF EXISTS "Admins can insert clients" ON clients;
 DROP POLICY IF EXISTS "Admins can delete clients" ON clients;
 
 -- Policy: View clients (owners can always see their accounts)
@@ -83,6 +85,7 @@ USING (public.is_admin());
 
 DROP POLICY IF EXISTS "Users can view their associated locations" ON locations;
 DROP POLICY IF EXISTS "Managers can update their locations" ON locations;
+DROP POLICY IF EXISTS "Managers and owners can update locations" ON locations;
 
 -- Policy: View locations (managers can see their venues)
 CREATE POLICY "Users can view their associated locations"
