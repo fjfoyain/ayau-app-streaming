@@ -6,6 +6,7 @@ import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import Paper from '@mui/material/Paper';
 import Alert from '@mui/material/Alert';
+import Link from '@mui/material/Link';
 import ayauLogo from '../assets/ayau-wordmark.png';
 
 export default function Login() {
@@ -198,6 +199,24 @@ export default function Login() {
           >
             {loading ? 'Iniciando sesión...' : 'INICIAR SESIÓN'}
           </Button>
+
+          {/* Forgot Password Link */}
+          <Box sx={{ textAlign: 'center', mt: 3 }}>
+            <Link
+              href="/password-reset"
+              sx={{
+                color: '#F4D03F99',
+                textDecoration: 'none',
+                fontSize: '0.9rem',
+                '&:hover': {
+                  color: '#F4D03F',
+                  textDecoration: 'underline',
+                },
+              }}
+            >
+              ¿Olvidaste tu contraseña?
+            </Link>
+          </Box>
         </Box>
       </Paper>
     </Box>

@@ -4,6 +4,7 @@ import { supabase } from "./lib/supabase";
 import Login from "./components/Login";
 import Loading from "./components/Loading";
 import HomePage from "./pages/HomePage";
+import PasswordReset from "./pages/PasswordReset";
 import AdminLayout from "./components/admin/AdminLayout";
 import AdminDashboard from "./components/admin/AdminDashboard";
 import AccountManager from "./components/admin/AccountManager";
@@ -39,41 +40,47 @@ export default function App() {
     return <Loading />;
   }
 
-  if (!session) {
-    return <Login />;
-  }
-
   return (
-    <PlayerProvider>
-      <SyncPlaybackProvider>
-        <Router>
-          <Routes>
-          {/* Public Routes (authenticated users) */}
-          <Route path="/" element={<HomePage session={session} />} />
+    <Router>
+      <Routes>
+        {/* Public routes (no authentication required) */}
+        <Route path="/password-reset" element={<PasswordReset />} />
 
-          {/* Admin Routes (protected) */}
-          <Route
-            path="/admin"
-            element={
-              <ProtectedAdminRoute>
-                <AdminLayout />
-              </ProtectedAdminRoute>
-            }
-          >
-            <Route index element={<AdminDashboard />} />
-            <Route path="accounts" element={<AccountManager />} />
-            <Route path="venues" element={<VenueManager />} />
-            <Route path="playlists" element={<PlaylistManager />} />
-            <Route path="songs" element={<SongManager />} />
-            <Route path="users" element={<UserManager />} />
-            <Route path="analytics" element={<AnalyticsDashboard />} />
-          </Route>
+        {/* Protected routes (authentication required) */}
+        {!session ? (
+          <Route path="*" element={<Login />} />
+        ) : (
+          <PlayerProvider>
+            <SyncPlaybackProvider>
+              <Routes>
+                {/* Public Routes (authenticated users) */}
+                <Route path="/" element={<HomePage session={session} />} />
 
-          {/* Catch all - redirect to home */}
-          <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
-        </Router>
-      </SyncPlaybackProvider>
-    </PlayerProvider>
+                {/* Admin Routes (protected) */}
+                <Route
+                  path="/admin"
+                  element={
+                    <ProtectedAdminRoute>
+                      <AdminLayout />
+                    </ProtectedAdminRoute>
+                  }
+                >
+                  <Route index element={<AdminDashboard />} />
+                  <Route path="accounts" element={<AccountManager />} />
+                  <Route path="venues" element={<VenueManager />} />
+                  <Route path="playlists" element={<PlaylistManager />} />
+                  <Route path="songs" element={<SongManager />} />
+                  <Route path="users" element={<UserManager />} />
+                  <Route path="analytics" element={<AnalyticsDashboard />} />
+                </Route>
+
+                {/* Catch all - redirect to home */}
+                <Route path="*" element={<Navigate to="/" replace />} />
+              </Routes>
+            </SyncPlaybackProvider>
+          </PlayerProvider>
+        )}
+      </Routes>
+    </Router>
   );
 }

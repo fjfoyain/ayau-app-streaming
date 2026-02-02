@@ -56,12 +56,14 @@ export default function UserManager() {
   const [permissionsDialogOpen, setPermissionsDialogOpen] = useState(false);
   const [createUserDialogOpen, setCreateUserDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [passwordDialogOpen, setPasswordDialogOpen] = useState(false);
   const [userToDelete, setUserToDelete] = useState(null);
   const [selectedUser, setSelectedUser] = useState(null);
   const [selectedRole, setSelectedRole] = useState('');
   const [userPermissions, setUserPermissions] = useState([]);
   const [selectedPlaylist, setSelectedPlaylist] = useState('');
   const [selectedPermissionLevel, setSelectedPermissionLevel] = useState('view');
+  const [generatedPassword, setGeneratedPassword] = useState('');
   const [newUserData, setNewUserData] = useState({
     email: '',
     password: '',
@@ -156,6 +158,35 @@ export default function UserManager() {
     });
   };
 
+  // Generar contraseña temporal segura
+  const generateTemporaryPassword = () => {
+    const length = 12;
+    const charset = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*';
+    let password = '';
+    for (let i = 0; i < length; i++) {
+      password += charset.charAt(Math.floor(Math.random() * charset.length));
+    }
+    return password;
+  };
+
+  // Handlers para modal de contraseña
+  const handleOpenPasswordDialog = (password) => {
+    setGeneratedPassword(password);
+    setPasswordDialogOpen(true);
+  };
+
+  const handleClosePasswordDialog = () => {
+    setPasswordDialogOpen(false);
+    setGeneratedPassword('');
+    handleCloseCreateUserDialog();
+    fetchData();
+  };
+
+  const handleCopyPassword = () => {
+    navigator.clipboard.writeText(generatedPassword);
+    alert('Contraseña copiada al portapapeles');
+  };
+
   const handleCreateUser = async () => {
     if (!newUserData.email || !newUserData.full_name) {
       alert('Email y nombre completo son requeridos');
@@ -174,19 +205,22 @@ export default function UserManager() {
 
     setSaving(true);
     try {
+      // Generar contraseña temporal si no se proporciona
+      const finalPassword = newUserData.password || generateTemporaryPassword();
+      const dataToSend = { ...newUserData, password: finalPassword };
+
       // Use createUserWithAccess if access_level fields are set
       if (newUserData.access_level && (newUserData.client_id || newUserData.location_id)) {
-        await createUserWithAccess(newUserData);
+        await createUserWithAccess(dataToSend);
       } else {
-        await createUser(newUserData);
+        await createUser(dataToSend);
       }
-      alert('Usuario creado exitosamente! Recibirá un email de confirmación.');
-      handleCloseCreateUserDialog();
-      fetchData();
+
+      // Mostrar modal con contraseña temporal
+      handleOpenPasswordDialog(finalPassword);
     } catch (error) {
       console.error('Error creating user:', error);
       alert('Error al crear usuario: ' + error.message);
-    } finally {
       setSaving(false);
     }
   };
@@ -1003,6 +1037,115 @@ export default function UserManager() {
             }}
           >
             {saving ? 'Eliminando...' : 'Eliminar Usuario'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Temporary Password Dialog */}
+      <Dialog
+        open={passwordDialogOpen}
+        onClose={passwordDialogOpen ? undefined : handleClosePasswordDialog}
+        maxWidth="sm"
+        fullWidth
+        PaperProps={{
+          sx: {
+            backgroundColor: '#000',
+            border: '2px solid #4CAF50',
+            borderRadius: '16px',
+          },
+        }}
+      >
+        <DialogTitle sx={{ color: '#4CAF50', fontWeight: 'bold' }}>
+          ✓ Usuario Creado Exitosamente
+        </DialogTitle>
+        <DialogContent>
+          <Box sx={{ mt: 2 }}>
+            <Typography sx={{ color: '#F4D03F', mb: 2 }}>
+              El usuario <strong>{newUserData.full_name}</strong> ha sido creado exitosamente.
+            </Typography>
+
+            <Paper
+              sx={{
+                p: 3,
+                backgroundColor: '#4CAF5022',
+                border: '2px solid #4CAF50',
+                borderRadius: '8px',
+                mb: 3,
+                textAlign: 'center',
+              }}
+            >
+              <Typography sx={{ color: '#F4D03F99', mb: 1, fontSize: '0.85rem' }}>
+                CONTRASEÑA TEMPORAL:
+              </Typography>
+              <Typography
+                sx={{
+                  color: '#4CAF50',
+                  fontSize: '1.3rem',
+                  fontWeight: 'bold',
+                  fontFamily: 'monospace',
+                  mb: 2,
+                  wordBreak: 'break-all',
+                }}
+              >
+                {generatedPassword}
+              </Typography>
+              <Button
+                variant="outlined"
+                onClick={handleCopyPassword}
+                sx={{
+                  borderColor: '#4CAF50',
+                  color: '#4CAF50',
+                  '&:hover': { backgroundColor: '#4CAF5022' },
+                }}
+              >
+                Copiar Contraseña
+              </Button>
+            </Paper>
+
+            <Paper
+              sx={{
+                p: 2,
+                backgroundColor: '#FFC10722',
+                border: '1px solid #FFC107',
+                borderRadius: '8px',
+                mb: 2,
+              }}
+            >
+              <Typography sx={{ color: '#FFC107', fontSize: '0.85rem', fontWeight: 'bold', mb: 1 }}>
+                ⚠️ IMPORTANTE:
+              </Typography>
+              <Typography sx={{ color: '#F4D03F99', fontSize: '0.85rem' }}>
+                1. Esta contraseña será requerida en el primer login.
+              </Typography>
+              <Typography sx={{ color: '#F4D03F99', fontSize: '0.85rem', mt: 0.5 }}>
+                2. El usuario recibirá un email de confirmación en {newUserData.email}
+              </Typography>
+              <Typography sx={{ color: '#F4D03F99', fontSize: '0.85rem', mt: 0.5 }}>
+                3. Se recomienda compartir la contraseña de forma segura.
+              </Typography>
+              <Typography sx={{ color: '#F4D03F99', fontSize: '0.85rem', mt: 0.5 }}>
+                4. El usuario puede cambiar su contraseña después del login.
+              </Typography>
+            </Paper>
+
+            <Typography sx={{ color: '#F4D03F66', fontSize: '0.8rem', textAlign: 'center' }}>
+              O el usuario puede usar el link "Olvidé mi contraseña" para establecer su propia contraseña.
+            </Typography>
+          </Box>
+        </DialogContent>
+        <DialogActions sx={{ p: 3 }}>
+          <Button
+            onClick={handleClosePasswordDialog}
+            variant="contained"
+            fullWidth
+            sx={{
+              backgroundColor: '#4CAF50',
+              color: '#000',
+              fontWeight: 'bold',
+              '&:hover': { backgroundColor: '#4CAF50dd' },
+            }}
+          >
+            Entendido, Cerrar
           </Button>
         </DialogActions>
       </Dialog>
