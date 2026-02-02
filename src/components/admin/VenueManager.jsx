@@ -30,18 +30,21 @@ import StoreIcon from '@mui/icons-material/Store';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import CancelIcon from '@mui/icons-material/Cancel';
 import FilterListIcon from '@mui/icons-material/FilterList';
+import PersonIcon from '@mui/icons-material/Person';
 import {
-  getAllVenues,
+  getAllVenuesWithManager,
   getVenuesForAccount,
   getAllAccounts,
   createVenue,
   updateVenue,
   deleteVenue,
+  getActiveUsers,
 } from '../../services/supabase-api';
 
 export default function VenueManager() {
   const [venues, setVenues] = useState([]);
   const [accounts, setAccounts] = useState([]);
+  const [availableManagers, setAvailableManagers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -52,6 +55,7 @@ export default function VenueManager() {
   const [formData, setFormData] = useState({
     name: '',
     client_id: '',
+    manager_id: '',
     address: '',
     city: '',
     country_code: 'GT',
@@ -69,12 +73,14 @@ export default function VenueManager() {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const [venuesData, accountsData] = await Promise.all([
-        getAllVenues(),
+      const [venuesData, accountsData, managersData] = await Promise.all([
+        getAllVenuesWithManager(),
         getAllAccounts(),
+        getActiveUsers(),
       ]);
       setVenues(venuesData || []);
       setAccounts(accountsData || []);
+      setAvailableManagers(managersData || []);
     } catch (error) {
       console.error('Error fetching data:', error);
       alert('Error al cargar datos');
@@ -89,7 +95,7 @@ export default function VenueManager() {
       if (selectedAccountFilter) {
         venuesData = await getVenuesForAccount(selectedAccountFilter);
       } else {
-        venuesData = await getAllVenues();
+        venuesData = await getAllVenuesWithManager();
       }
       setVenues(venuesData || []);
     } catch (error) {
@@ -102,6 +108,7 @@ export default function VenueManager() {
     setFormData({
       name: '',
       client_id: selectedAccountFilter || '',
+      manager_id: '',
       address: '',
       city: '',
       country_code: 'GT',
@@ -115,6 +122,7 @@ export default function VenueManager() {
     setFormData({
       name: venue.name || '',
       client_id: venue.client_id || '',
+      manager_id: venue.manager_id || '',
       address: venue.address || '',
       city: venue.city || '',
       country_code: venue.country_code || 'GT',
@@ -129,6 +137,7 @@ export default function VenueManager() {
     setFormData({
       name: '',
       client_id: '',
+      manager_id: '',
       address: '',
       city: '',
       country_code: 'GT',
@@ -148,13 +157,19 @@ export default function VenueManager() {
 
     setSaving(true);
     try {
+      // Prepare data - convert empty manager_id to null
+      const dataToSave = {
+        ...formData,
+        manager_id: formData.manager_id || null,
+      };
+
       if (editingVenue) {
         // Update existing venue
-        await updateVenue(editingVenue.id, formData);
+        await updateVenue(editingVenue.id, dataToSave);
         alert('Local actualizado exitosamente');
       } else {
         // Create new venue
-        await createVenue(formData);
+        await createVenue(dataToSave);
         alert('Local creado exitosamente');
       }
       handleCloseDialog();
@@ -291,8 +306,8 @@ export default function VenueManager() {
             <TableRow sx={{ borderBottom: '2px solid #F4D03F44' }}>
               <TableCell sx={{ color: '#F4D03F', fontWeight: 'bold' }}>Nombre del Local</TableCell>
               <TableCell sx={{ color: '#F4D03F', fontWeight: 'bold' }}>Cuenta</TableCell>
+              <TableCell sx={{ color: '#F4D03F', fontWeight: 'bold' }}>Gerente</TableCell>
               <TableCell sx={{ color: '#F4D03F', fontWeight: 'bold' }}>Ciudad</TableCell>
-              <TableCell sx={{ color: '#F4D03F', fontWeight: 'bold' }}>Dirección</TableCell>
               <TableCell sx={{ color: '#F4D03F', fontWeight: 'bold' }} align="center">Activo</TableCell>
               <TableCell sx={{ color: '#F4D03F', fontWeight: 'bold' }} align="center">Acciones</TableCell>
             </TableRow>
@@ -338,8 +353,21 @@ export default function VenueManager() {
                       }}
                     />
                   </TableCell>
+                  <TableCell sx={{ color: '#F4D03F99' }}>
+                    {venue.manager ? (
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                        <PersonIcon sx={{ fontSize: 16, color: '#F4D03F66' }} />
+                        <Typography variant="body2" sx={{ color: '#F4D03F' }}>
+                          {venue.manager.full_name}
+                        </Typography>
+                      </Box>
+                    ) : (
+                      <Typography variant="body2" sx={{ color: '#F4D03F44' }}>
+                        Sin asignar
+                      </Typography>
+                    )}
+                  </TableCell>
                   <TableCell sx={{ color: '#F4D03F99' }}>{venue.city || '-'}</TableCell>
-                  <TableCell sx={{ color: '#F4D03F99' }}>{venue.address || '-'}</TableCell>
                   <TableCell align="center">
                     {venue.is_active !== false ? (
                       <CheckCircleIcon sx={{ color: '#4CAF50' }} />
@@ -424,6 +452,61 @@ export default function VenueManager() {
                 ))}
               </Select>
             </FormControl>
+
+            {/* Manager Selector */}
+            <FormControl
+              fullWidth
+              sx={{
+                '& .MuiOutlinedInput-root': {
+                  color: '#F4D03F',
+                  '& fieldset': { borderColor: '#F4D03F44' },
+                  '&:hover fieldset': { borderColor: '#F4D03F' },
+                  '&.Mui-focused fieldset': { borderColor: '#F4D03F' },
+                },
+                '& .MuiInputLabel-root': { color: '#F4D03F99' },
+                '& .MuiInputLabel-root.Mui-focused': { color: '#F4D03F' },
+                '& .MuiSvgIcon-root': { color: '#F4D03F' },
+              }}
+            >
+              <InputLabel>Gerente del Local</InputLabel>
+              <Select
+                value={formData.manager_id}
+                onChange={(e) => setFormData({ ...formData, manager_id: e.target.value })}
+                label="Gerente del Local"
+                startAdornment={<PersonIcon sx={{ mr: 1, color: '#F4D03F99' }} />}
+                MenuProps={{
+                  PaperProps: {
+                    sx: {
+                      backgroundColor: '#000',
+                      border: '2px solid #F4D03F',
+                      maxHeight: 300,
+                      '& .MuiMenuItem-root': {
+                        color: '#F4D03F',
+                        '&:hover': { backgroundColor: '#F4D03F22' },
+                        '&.Mui-selected': { backgroundColor: '#F4D03F33' },
+                      },
+                    },
+                  },
+                }}
+              >
+                <MenuItem value="">
+                  <Typography sx={{ color: '#F4D03F66', fontStyle: 'italic' }}>
+                    Sin asignar
+                  </Typography>
+                </MenuItem>
+                {availableManagers.map((user) => (
+                  <MenuItem key={user.id} value={user.id}>
+                    <Box>
+                      <Typography variant="body1">{user.full_name}</Typography>
+                      <Typography variant="caption" sx={{ color: '#F4D03F66' }}>
+                        {user.email}
+                      </Typography>
+                    </Box>
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+
             <TextField
               label="Nombre del Local"
               fullWidth

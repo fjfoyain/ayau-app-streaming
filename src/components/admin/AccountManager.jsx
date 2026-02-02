@@ -30,15 +30,18 @@ import BusinessIcon from '@mui/icons-material/Business';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import CancelIcon from '@mui/icons-material/Cancel';
 import SyncIcon from '@mui/icons-material/Sync';
+import PersonIcon from '@mui/icons-material/Person';
 import {
-  getAllAccounts,
+  getAllAccountsWithOwner,
   createAccount,
   updateAccount,
   deleteAccount,
+  getUsersForOwnerSelection,
 } from '../../services/supabase-api';
 
 export default function AccountManager() {
   const [accounts, setAccounts] = useState([]);
+  const [availableOwners, setAvailableOwners] = useState([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -47,7 +50,7 @@ export default function AccountManager() {
   const [accountToDelete, setAccountToDelete] = useState(null);
   const [formData, setFormData] = useState({
     name: '',
-    contact_email: '',
+    owner_id: '',
     contact_phone: '',
     tax_id: '',
     playback_mode: 'independent',
@@ -55,17 +58,21 @@ export default function AccountManager() {
   });
 
   useEffect(() => {
-    fetchAccounts();
+    fetchData();
   }, []);
 
-  const fetchAccounts = async () => {
+  const fetchData = async () => {
     setLoading(true);
     try {
-      const data = await getAllAccounts();
-      setAccounts(data || []);
+      const [accountsData, ownersData] = await Promise.all([
+        getAllAccountsWithOwner(),
+        getUsersForOwnerSelection(),
+      ]);
+      setAccounts(accountsData || []);
+      setAvailableOwners(ownersData || []);
     } catch (error) {
-      console.error('Error fetching accounts:', error);
-      alert('Error al cargar cuentas');
+      console.error('Error fetching data:', error);
+      alert('Error al cargar datos');
     } finally {
       setLoading(false);
     }
@@ -75,7 +82,7 @@ export default function AccountManager() {
     setEditingAccount(null);
     setFormData({
       name: '',
-      contact_email: '',
+      owner_id: '',
       contact_phone: '',
       tax_id: '',
       playback_mode: 'independent',
@@ -88,7 +95,7 @@ export default function AccountManager() {
     setEditingAccount(account);
     setFormData({
       name: account.name || '',
-      contact_email: account.contact_email || '',
+      owner_id: account.owner_id || '',
       contact_phone: account.contact_phone || '',
       tax_id: account.tax_id || '',
       playback_mode: account.playback_mode || 'independent',
@@ -102,7 +109,7 @@ export default function AccountManager() {
     setEditingAccount(null);
     setFormData({
       name: '',
-      contact_email: '',
+      owner_id: '',
       contact_phone: '',
       tax_id: '',
       playback_mode: 'independent',
@@ -118,17 +125,23 @@ export default function AccountManager() {
 
     setSaving(true);
     try {
+      // Prepare data - convert empty owner_id to null
+      const dataToSave = {
+        ...formData,
+        owner_id: formData.owner_id || null,
+      };
+
       if (editingAccount) {
         // Update existing account
-        await updateAccount(editingAccount.id, formData);
+        await updateAccount(editingAccount.id, dataToSave);
         alert('Cuenta actualizada exitosamente');
       } else {
         // Create new account
-        await createAccount(formData);
+        await createAccount(dataToSave);
         alert('Cuenta creada exitosamente');
       }
       handleCloseDialog();
-      fetchAccounts();
+      fetchData();
     } catch (error) {
       console.error('Error saving account:', error);
       alert('Error al guardar la cuenta: ' + error.message);
@@ -155,7 +168,7 @@ export default function AccountManager() {
       await deleteAccount(accountToDelete.id);
       alert('Cuenta eliminada exitosamente');
       handleCloseDeleteDialog();
-      fetchAccounts();
+      fetchData();
     } catch (error) {
       console.error('Error deleting account:', error);
       alert('Error al eliminar la cuenta: ' + error.message);
@@ -207,7 +220,7 @@ export default function AccountManager() {
           <TableHead>
             <TableRow sx={{ borderBottom: '2px solid #F4D03F44' }}>
               <TableCell sx={{ color: '#F4D03F', fontWeight: 'bold' }}>Nombre</TableCell>
-              <TableCell sx={{ color: '#F4D03F', fontWeight: 'bold' }}>Email de Contacto</TableCell>
+              <TableCell sx={{ color: '#F4D03F', fontWeight: 'bold' }}>Owner</TableCell>
               <TableCell sx={{ color: '#F4D03F', fontWeight: 'bold' }}>Teléfono</TableCell>
               <TableCell sx={{ color: '#F4D03F', fontWeight: 'bold' }}>Tax ID</TableCell>
               <TableCell sx={{ color: '#F4D03F', fontWeight: 'bold' }} align="center"># Locales</TableCell>
@@ -243,7 +256,25 @@ export default function AccountManager() {
                       {account.name}
                     </Box>
                   </TableCell>
-                  <TableCell sx={{ color: '#F4D03F99' }}>{account.contact_email || '-'}</TableCell>
+                  <TableCell sx={{ color: '#F4D03F99' }}>
+                    {account.owner ? (
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                        <PersonIcon sx={{ fontSize: 16, color: '#F4D03F66' }} />
+                        <Box>
+                          <Typography variant="body2" sx={{ color: '#F4D03F' }}>
+                            {account.owner.full_name}
+                          </Typography>
+                          <Typography variant="caption" sx={{ color: '#F4D03F66' }}>
+                            {account.owner.email}
+                          </Typography>
+                        </Box>
+                      </Box>
+                    ) : (
+                      <Typography variant="body2" sx={{ color: '#F4D03F44' }}>
+                        Sin asignar
+                      </Typography>
+                    )}
+                  </TableCell>
                   <TableCell sx={{ color: '#F4D03F99' }}>{account.contact_phone || '-'}</TableCell>
                   <TableCell sx={{ color: '#F4D03F99' }}>{account.tax_id || '-'}</TableCell>
                   <TableCell align="center">
@@ -324,12 +355,9 @@ export default function AccountManager() {
                 '& .MuiInputLabel-root.Mui-focused': { color: '#F4D03F' },
               }}
             />
-            <TextField
-              label="Email de Contacto"
-              type="email"
+            {/* Owner Selector */}
+            <FormControl
               fullWidth
-              value={formData.contact_email}
-              onChange={(e) => setFormData({ ...formData, contact_email: e.target.value })}
               sx={{
                 '& .MuiOutlinedInput-root': {
                   color: '#F4D03F',
@@ -339,8 +367,50 @@ export default function AccountManager() {
                 },
                 '& .MuiInputLabel-root': { color: '#F4D03F99' },
                 '& .MuiInputLabel-root.Mui-focused': { color: '#F4D03F' },
+                '& .MuiSvgIcon-root': { color: '#F4D03F' },
               }}
-            />
+            >
+              <InputLabel>Owner de la Cuenta</InputLabel>
+              <Select
+                value={formData.owner_id}
+                onChange={(e) => setFormData({ ...formData, owner_id: e.target.value })}
+                label="Owner de la Cuenta"
+                startAdornment={<PersonIcon sx={{ mr: 1, color: '#F4D03F99' }} />}
+                MenuProps={{
+                  PaperProps: {
+                    sx: {
+                      backgroundColor: '#000',
+                      border: '2px solid #F4D03F',
+                      maxHeight: 300,
+                      '& .MuiMenuItem-root': {
+                        color: '#F4D03F',
+                        '&:hover': { backgroundColor: '#F4D03F22' },
+                        '&.Mui-selected': { backgroundColor: '#F4D03F33' },
+                      },
+                    },
+                  },
+                }}
+              >
+                <MenuItem value="">
+                  <Typography sx={{ color: '#F4D03F66', fontStyle: 'italic' }}>
+                    Sin asignar
+                  </Typography>
+                </MenuItem>
+                {availableOwners.map((user) => (
+                  <MenuItem key={user.id} value={user.id}>
+                    <Box>
+                      <Typography variant="body1">{user.full_name}</Typography>
+                      <Typography variant="caption" sx={{ color: '#F4D03F66' }}>
+                        {user.email} ({user.role})
+                      </Typography>
+                    </Box>
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+            <Typography variant="caption" sx={{ color: '#F4D03F66', mt: -2 }}>
+              El owner tiene acceso completo y controla la reproducción en modo sincronizado
+            </Typography>
             <TextField
               label="Teléfono de Contacto"
               fullWidth

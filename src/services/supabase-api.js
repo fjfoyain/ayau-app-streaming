@@ -684,9 +684,10 @@ export const createAccount = async (accountData) => {
     .from('clients')
     .insert({
       name: accountData.name,
-      contact_email: accountData.contact_email,
+      owner_id: accountData.owner_id || null,
       contact_phone: accountData.contact_phone,
       tax_id: accountData.tax_id,
+      playback_mode: accountData.playback_mode || 'independent',
       is_active: accountData.is_active ?? true
     })
     .select()
@@ -799,6 +800,7 @@ export const createVenue = async (venueData) => {
     .from('locations')
     .insert({
       client_id: venueData.client_id,
+      manager_id: venueData.manager_id || null,
       name: venueData.name,
       address: venueData.address,
       city: venueData.city,
@@ -1197,10 +1199,20 @@ export const subscribeToPlaybackSessionEnhanced = (clientId, callback) => {
 
 /**
  * Verificar si el usuario actual puede controlar la reproducción de una cuenta
+ * Ahora también verifica si es el owner de la cuenta
  */
 export const canControlPlayback = async (clientId) => {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return false
+
+  // Check if user is the account owner
+  const { data: clientData } = await supabase
+    .from('clients')
+    .select('owner_id')
+    .eq('id', clientId)
+    .single()
+
+  if (clientData?.owner_id === user.id) return true
 
   const { data, error } = await supabase
     .from('user_profiles')
@@ -1219,4 +1231,169 @@ export const canControlPlayback = async (clientId) => {
   }
 
   return false
+}
+
+// ================================================
+// OWNER/MANAGER MANAGEMENT
+// ================================================
+
+/**
+ * Obtener usuarios disponibles para ser owner/manager
+ * Solo usuarios activos con rol manager o admin
+ */
+export const getUsersForOwnerSelection = async () => {
+  const { data, error } = await supabase
+    .from('user_profiles')
+    .select('id, full_name, email, role')
+    .eq('is_active', true)
+    .in('role', ['manager', 'admin'])
+    .order('full_name')
+
+  if (error) {
+    console.error('Error fetching users for selection:', error)
+    throw error
+  }
+  return data
+}
+
+/**
+ * Obtener todos los usuarios activos (para manager de local)
+ */
+export const getActiveUsers = async () => {
+  const { data, error } = await supabase
+    .from('user_profiles')
+    .select('id, full_name, email, role')
+    .eq('is_active', true)
+    .order('full_name')
+
+  if (error) {
+    console.error('Error fetching active users:', error)
+    throw error
+  }
+  return data
+}
+
+/**
+ * Obtener cuentas con información del owner
+ */
+export const getAllAccountsWithOwner = async () => {
+  const { data, error } = await supabase
+    .from('clients')
+    .select(`
+      *,
+      locations (id),
+      owner:owner_id (
+        id,
+        full_name,
+        email
+      )
+    `)
+    .order('name')
+
+  if (error) {
+    console.error('Error fetching accounts with owner:', error)
+    throw error
+  }
+
+  return data.map(account => ({
+    ...account,
+    venue_count: account.locations?.length || 0,
+    locations: undefined
+  }))
+}
+
+/**
+ * Obtener locales con información del manager
+ */
+export const getAllVenuesWithManager = async () => {
+  const { data, error } = await supabase
+    .from('locations')
+    .select(`
+      *,
+      clients (
+        id,
+        name
+      ),
+      manager:manager_id (
+        id,
+        full_name,
+        email
+      )
+    `)
+    .order('name')
+
+  if (error) {
+    console.error('Error fetching venues with manager:', error)
+    throw error
+  }
+  return data
+}
+
+/**
+ * Eliminar usuario (soft delete - desactivar)
+ */
+export const deleteUser = async (userId) => {
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error('Not authenticated')
+
+  // Verify current user is admin
+  const { data: currentUser } = await supabase
+    .from('user_profiles')
+    .select('role')
+    .eq('id', user.id)
+    .single()
+
+  if (currentUser?.role !== 'admin') {
+    throw new Error('Solo los administradores pueden eliminar usuarios')
+  }
+
+  // Cannot delete self
+  if (userId === user.id) {
+    throw new Error('No puedes eliminar tu propia cuenta')
+  }
+
+  // Clear owner_id references
+  await supabase
+    .from('clients')
+    .update({ owner_id: null })
+    .eq('owner_id', userId)
+
+  // Clear manager_id references
+  await supabase
+    .from('locations')
+    .update({ manager_id: null })
+    .eq('manager_id', userId)
+
+  // Clear controller references in playback sessions
+  await supabase
+    .from('playback_sessions')
+    .update({ controlled_by: null })
+    .eq('controlled_by', userId)
+
+  // Soft delete: deactivate user
+  const { error } = await supabase
+    .from('user_profiles')
+    .update({ is_active: false, updated_at: new Date().toISOString() })
+    .eq('id', userId)
+
+  if (error) {
+    console.error('Error deleting user:', error)
+    throw error
+  }
+}
+
+/**
+ * Verificar si el usuario actual es el owner de una cuenta
+ */
+export const isAccountOwner = async (clientId) => {
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return false
+
+  const { data } = await supabase
+    .from('clients')
+    .select('owner_id')
+    .eq('id', clientId)
+    .single()
+
+  return data?.owner_id === user.id
 }

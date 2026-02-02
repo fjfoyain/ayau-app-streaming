@@ -28,6 +28,7 @@ import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings';
 import PersonIcon from '@mui/icons-material/Person';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import CancelIcon from '@mui/icons-material/Cancel';
+import DeleteIcon from '@mui/icons-material/Delete';
 import {
   getAllUsers,
   createUser,
@@ -40,6 +41,7 @@ import {
   getAllAccounts,
   getAllVenues,
   getVenuesForAccount,
+  deleteUser,
 } from '../../services/supabase-api';
 
 export default function UserManager() {
@@ -53,6 +55,8 @@ export default function UserManager() {
   const [roleDialogOpen, setRoleDialogOpen] = useState(false);
   const [permissionsDialogOpen, setPermissionsDialogOpen] = useState(false);
   const [createUserDialogOpen, setCreateUserDialogOpen] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [userToDelete, setUserToDelete] = useState(null);
   const [selectedUser, setSelectedUser] = useState(null);
   const [selectedRole, setSelectedRole] = useState('');
   const [userPermissions, setUserPermissions] = useState([]);
@@ -237,6 +241,33 @@ export default function UserManager() {
     }
   };
 
+  const handleOpenDeleteDialog = (user) => {
+    setUserToDelete(user);
+    setDeleteDialogOpen(true);
+  };
+
+  const handleCloseDeleteDialog = () => {
+    setDeleteDialogOpen(false);
+    setUserToDelete(null);
+  };
+
+  const handleDeleteUser = async () => {
+    if (!userToDelete) return;
+
+    setSaving(true);
+    try {
+      await deleteUser(userToDelete.id);
+      alert('Usuario eliminado exitosamente');
+      handleCloseDeleteDialog();
+      fetchData();
+    } catch (error) {
+      console.error('Error deleting user:', error);
+      alert('Error al eliminar usuario: ' + error.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const getRoleIcon = (role) => {
     switch (role) {
       case 'admin':
@@ -371,6 +402,13 @@ export default function UserManager() {
                     title="Gestionar permisos"
                   >
                     <PlaylistAddIcon />
+                  </IconButton>
+                  <IconButton
+                    onClick={() => handleOpenDeleteDialog(user)}
+                    sx={{ color: '#ff5252' }}
+                    title="Eliminar usuario"
+                  >
+                    <DeleteIcon />
                   </IconButton>
                 </TableCell>
               </TableRow>
@@ -897,6 +935,74 @@ export default function UserManager() {
             }}
           >
             {saving ? 'Creando...' : 'Crear Usuario'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Delete User Confirmation Dialog */}
+      <Dialog
+        open={deleteDialogOpen}
+        onClose={saving ? undefined : handleCloseDeleteDialog}
+        maxWidth="sm"
+        fullWidth
+        PaperProps={{
+          sx: {
+            backgroundColor: '#000',
+            border: '2px solid #ff5252',
+            borderRadius: '16px',
+          },
+        }}
+      >
+        <DialogTitle sx={{ color: '#ff5252', fontWeight: 'bold' }}>
+          Confirmar Eliminación de Usuario
+        </DialogTitle>
+        <DialogContent>
+          <Typography sx={{ color: '#F4D03F', mb: 2 }}>
+            ¿Estás seguro de que deseas eliminar al usuario{' '}
+            <strong>{userToDelete?.full_name || userToDelete?.email}</strong>?
+          </Typography>
+          <Paper
+            sx={{
+              p: 2,
+              backgroundColor: '#ff525222',
+              border: '1px solid #ff525244',
+              borderRadius: '8px',
+              mb: 2,
+            }}
+          >
+            <Typography variant="body2" sx={{ color: '#ff5252', fontSize: '0.85rem' }}>
+              <strong>Advertencia:</strong> Esta acción desactivará al usuario y eliminará sus
+              asignaciones como owner de cuenta o gerente de local.
+            </Typography>
+          </Paper>
+          <Typography sx={{ color: '#F4D03F99', fontSize: '0.9rem' }}>
+            El usuario no podrá acceder al sistema después de ser eliminado.
+          </Typography>
+        </DialogContent>
+        <DialogActions sx={{ p: 3 }}>
+          <Button
+            onClick={handleCloseDeleteDialog}
+            disabled={saving}
+            sx={{
+              color: '#F4D03F',
+              borderColor: '#F4D03F',
+            }}
+          >
+            Cancelar
+          </Button>
+          <Button
+            onClick={handleDeleteUser}
+            variant="contained"
+            disabled={saving}
+            sx={{
+              backgroundColor: '#ff5252',
+              color: '#fff',
+              fontWeight: 'bold',
+              '&:hover': { backgroundColor: '#ff5252dd' },
+              '&:disabled': { backgroundColor: '#ff525233', color: '#ffffff99' },
+            }}
+          >
+            {saving ? 'Eliminando...' : 'Eliminar Usuario'}
           </Button>
         </DialogActions>
       </Dialog>
