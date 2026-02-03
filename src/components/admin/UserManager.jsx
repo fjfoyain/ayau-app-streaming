@@ -398,6 +398,7 @@ export default function UserManager() {
               <TableCell sx={{ color: '#F4D03F', fontWeight: 'bold' }} align="center">Rol</TableCell>
               <TableCell sx={{ color: '#F4D03F', fontWeight: 'bold' }}>Alcance de Acceso</TableCell>
               <TableCell sx={{ color: '#F4D03F', fontWeight: 'bold' }} align="center">Excluido Analytics</TableCell>
+              <TableCell sx={{ color: '#F4D03F', fontWeight: 'bold' }} align="center">Verificado</TableCell>
               <TableCell sx={{ color: '#F4D03F', fontWeight: 'bold' }} align="center">Activo</TableCell>
               <TableCell sx={{ color: '#F4D03F', fontWeight: 'bold' }} align="center">Acciones</TableCell>
             </TableRow>
@@ -440,10 +441,17 @@ export default function UserManager() {
                   />
                 </TableCell>
                 <TableCell align="center">
-                  {user.is_active ? (
-                    <CheckCircleIcon sx={{ color: '#4CAF50' }} />
+                  {user.email_confirmed_at ? (
+                    <CheckCircleIcon sx={{ color: '#2196F3' }} titleAccess="Email verificado" />
                   ) : (
-                    <CancelIcon sx={{ color: '#F4D03F44' }} />
+                    <CancelIcon sx={{ color: '#FF9800' }} titleAccess="Email no verificado" />
+                  )}
+                </TableCell>
+                <TableCell align="center">
+                  {user.is_active !== false ? (
+                    <CheckCircleIcon sx={{ color: '#4CAF50' }} titleAccess="Usuario activo" />
+                  ) : (
+                    <CancelIcon sx={{ color: '#f44336' }} titleAccess="Usuario inactivo" />
                   )}
                 </TableCell>
                 <TableCell align="center">
@@ -475,7 +483,7 @@ export default function UserManager() {
         </Table>
       </TableContainer>
 
-      {/* Dialog for Editing Role */}
+      {/* Dialog for Editing User */}
       <Dialog
         open={roleDialogOpen}
         onClose={handleCloseRoleDialog}
@@ -490,13 +498,44 @@ export default function UserManager() {
         }}
       >
         <DialogTitle sx={{ color: '#F4D03F', fontWeight: 'bold' }}>
-          Editar Rol de Usuario
+          Editar Usuario
         </DialogTitle>
         <DialogContent>
-          <Typography sx={{ color: '#F4D03F99', mb: 3 }}>
+          <Typography sx={{ color: '#F4D03F99', mb: 1 }}>
             Usuario: <strong style={{ color: '#F4D03F' }}>{selectedUser?.full_name}</strong>
           </Typography>
-          <FormControl fullWidth>
+          <Typography sx={{ color: '#F4D03F66', mb: 3, fontSize: '0.85rem' }}>
+            {selectedUser?.email}
+          </Typography>
+
+          {/* Status Indicators */}
+          <Box sx={{ display: 'flex', gap: 2, mb: 3, flexWrap: 'wrap' }}>
+            <Chip
+              icon={selectedUser?.is_active ? <CheckCircleIcon /> : <CancelIcon />}
+              label={selectedUser?.is_active ? 'Activo' : 'Inactivo'}
+              sx={{
+                backgroundColor: selectedUser?.is_active ? '#4CAF5033' : '#f4433633',
+                color: selectedUser?.is_active ? '#4CAF50' : '#f44336',
+                '& .MuiChip-icon': { color: 'inherit' },
+              }}
+            />
+            <Chip
+              label={selectedUser?.email_confirmed_at ? 'Email Verificado' : 'Email No Verificado'}
+              sx={{
+                backgroundColor: selectedUser?.email_confirmed_at ? '#2196F333' : '#FF980033',
+                color: selectedUser?.email_confirmed_at ? '#2196F3' : '#FF9800',
+              }}
+            />
+            {selectedUser?.exclude_from_analytics && (
+              <Chip
+                label="Excluido de Analytics"
+                sx={{ backgroundColor: '#FF980033', color: '#FF9800' }}
+              />
+            )}
+          </Box>
+
+          {/* Role Selection */}
+          <FormControl fullWidth sx={{ mb: 3 }}>
             <InputLabel sx={{ color: '#F4D03F99', '&.Mui-focused': { color: '#F4D03F' } }}>
               Rol
             </InputLabel>
@@ -525,11 +564,145 @@ export default function UserManager() {
               }}
             >
               <MenuItem value="admin">Admin - Acceso total al sistema</MenuItem>
-              <MenuItem value="manager">Manager - Gestión de clientes y locaciones</MenuItem>
+              <MenuItem value="manager">Manager - Gestion de clientes y locaciones</MenuItem>
               <MenuItem value="user">User - Usuario regular</MenuItem>
               <MenuItem value="client_user">Client User - Usuario de cliente</MenuItem>
             </Select>
           </FormControl>
+
+          {/* Exclude from Analytics */}
+          <FormControlLabel
+            control={
+              <Checkbox
+                checked={!!selectedUser?.exclude_from_analytics}
+                onChange={async (e) => {
+                  setSaving(true);
+                  try {
+                    await updateUserProfile(selectedUser.id, { exclude_from_analytics: e.target.checked });
+                    setSelectedUser({ ...selectedUser, exclude_from_analytics: e.target.checked });
+                    fetchData();
+                  } catch (err) {
+                    alert('Error al actualizar exclusion de analytics');
+                  } finally {
+                    setSaving(false);
+                  }
+                }}
+                disabled={saving}
+                sx={{
+                  color: '#FF9800',
+                  '&.Mui-checked': { color: '#FF9800' },
+                }}
+              />
+            }
+            label={
+              <Box>
+                <Typography sx={{ color: '#FF9800', fontWeight: 'bold' }}>
+                  Excluir de Analytics y Regalias
+                </Typography>
+                <Typography variant="caption" sx={{ color: '#F4D03F99' }}>
+                  Las reproducciones NO contaran para estadisticas ni regalias
+                </Typography>
+              </Box>
+            }
+            sx={{
+              mb: 2,
+              p: 2,
+              width: '100%',
+              backgroundColor: selectedUser?.exclude_from_analytics ? '#FF980022' : 'transparent',
+              border: '1px solid #FF980044',
+              borderRadius: '8px',
+            }}
+          />
+
+          {/* Active/Inactive Toggle */}
+          <FormControlLabel
+            control={
+              <Checkbox
+                checked={!!selectedUser?.is_active}
+                onChange={async (e) => {
+                  setSaving(true);
+                  try {
+                    await updateUserProfile(selectedUser.id, { is_active: e.target.checked });
+                    setSelectedUser({ ...selectedUser, is_active: e.target.checked });
+                    fetchData();
+                  } catch (err) {
+                    alert('Error al actualizar estado de usuario');
+                  } finally {
+                    setSaving(false);
+                  }
+                }}
+                disabled={saving}
+                sx={{
+                  color: '#4CAF50',
+                  '&.Mui-checked': { color: '#4CAF50' },
+                }}
+              />
+            }
+            label={
+              <Box>
+                <Typography sx={{ color: selectedUser?.is_active ? '#4CAF50' : '#f44336', fontWeight: 'bold' }}>
+                  Usuario Activo
+                </Typography>
+                <Typography variant="caption" sx={{ color: '#F4D03F99' }}>
+                  {selectedUser?.is_active ? 'El usuario puede acceder al sistema' : 'El usuario NO puede acceder'}
+                </Typography>
+              </Box>
+            }
+            sx={{
+              mb: 2,
+              p: 2,
+              width: '100%',
+              backgroundColor: selectedUser?.is_active ? '#4CAF5011' : '#f4433622',
+              border: `1px solid ${selectedUser?.is_active ? '#4CAF5044' : '#f4433644'}`,
+              borderRadius: '8px',
+            }}
+          />
+
+          {/* Manual Email Verification */}
+          {!selectedUser?.email_confirmed_at && (
+            <Paper
+              sx={{
+                p: 2,
+                backgroundColor: '#FF980022',
+                border: '1px solid #FF980044',
+                borderRadius: '8px',
+                mb: 2,
+              }}
+            >
+              <Typography sx={{ color: '#FF9800', mb: 1, fontWeight: 'bold' }}>
+                Email No Verificado
+              </Typography>
+              <Typography variant="caption" sx={{ color: '#F4D03F99', display: 'block', mb: 2 }}>
+                El usuario no ha confirmado su email. Puedes verificarlo manualmente.
+              </Typography>
+              <Button
+                variant="outlined"
+                size="small"
+                disabled={saving}
+                onClick={async () => {
+                  if (!confirm('¿Verificar manualmente el email de este usuario?')) return;
+                  setSaving(true);
+                  try {
+                    await updateUserProfile(selectedUser.id, { email_confirmed_at: new Date().toISOString() });
+                    setSelectedUser({ ...selectedUser, email_confirmed_at: new Date().toISOString() });
+                    fetchData();
+                    alert('Email verificado manualmente');
+                  } catch (err) {
+                    alert('Error al verificar email: ' + err.message);
+                  } finally {
+                    setSaving(false);
+                  }
+                }}
+                sx={{
+                  borderColor: '#FF9800',
+                  color: '#FF9800',
+                  '&:hover': { backgroundColor: '#FF980022' },
+                }}
+              >
+                Verificar Email Manualmente
+              </Button>
+            </Paper>
+          )}
         </DialogContent>
         <DialogActions sx={{ p: 3 }}>
           <Button onClick={handleCloseRoleDialog} sx={{ color: '#F4D03F' }}>
@@ -538,6 +711,7 @@ export default function UserManager() {
           <Button
             onClick={handleUpdateRole}
             variant="contained"
+            disabled={saving}
             sx={{
               backgroundColor: '#F4D03F',
               color: '#000',
@@ -545,7 +719,7 @@ export default function UserManager() {
               '&:hover': { backgroundColor: '#F4D03Fdd' },
             }}
           >
-            Guardar
+            {saving ? 'Guardando...' : 'Guardar Cambios'}
           </Button>
         </DialogActions>
       </Dialog>
