@@ -128,7 +128,8 @@ export default function UserManager() {
     try {
       await updateUserProfile(selectedUser.id, { 
         role: selectedRole,
-        exclude_from_analytics: selectedUser.exclude_from_analytics 
+        exclude_from_analytics: selectedUser.exclude_from_analytics,
+        is_active: selectedUser.is_active
       });
       alert('Usuario actualizado exitosamente');
       handleCloseRoleDialog();
@@ -639,17 +640,8 @@ export default function UserManager() {
             control={
               <Checkbox
                 checked={!!selectedUser?.is_active}
-                onChange={async (e) => {
-                  setSaving(true);
-                  try {
-                    await updateUserProfile(selectedUser.id, { is_active: e.target.checked });
-                    setSelectedUser({ ...selectedUser, is_active: e.target.checked });
-                    fetchData();
-                  } catch (err) {
-                    alert('Error al actualizar estado de usuario');
-                  } finally {
-                    setSaving(false);
-                  }
+                onChange={(e) => {
+                  setSelectedUser({ ...selectedUser, is_active: e.target.checked });
                 }}
                 disabled={saving}
                 sx={{
