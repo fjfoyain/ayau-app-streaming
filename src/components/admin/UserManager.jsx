@@ -124,14 +124,20 @@ export default function UserManager() {
   const handleUpdateRole = async () => {
     if (!selectedUser) return;
 
+    setSaving(true);
     try {
-      await updateUserProfile(selectedUser.id, { role: selectedRole });
-      alert('Rol actualizado exitosamente');
+      await updateUserProfile(selectedUser.id, { 
+        role: selectedRole,
+        exclude_from_analytics: selectedUser.exclude_from_analytics 
+      });
+      alert('Usuario actualizado exitosamente');
       handleCloseRoleDialog();
       fetchData();
     } catch (error) {
-      console.error('Error updating role:', error);
-      alert('Error al actualizar el rol');
+      console.error('Error updating user:', error);
+      alert('Error al actualizar el usuario: ' + error.message);
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -595,17 +601,8 @@ export default function UserManager() {
             control={
               <Checkbox
                 checked={!!selectedUser?.exclude_from_analytics}
-                onChange={async (e) => {
-                  setSaving(true);
-                  try {
-                    await updateUserProfile(selectedUser.id, { exclude_from_analytics: e.target.checked });
-                    setSelectedUser({ ...selectedUser, exclude_from_analytics: e.target.checked });
-                    fetchData();
-                  } catch (err) {
-                    alert('Error al actualizar exclusion de analytics');
-                  } finally {
-                    setSaving(false);
-                  }
+                onChange={(e) => {
+                  setSelectedUser({ ...selectedUser, exclude_from_analytics: e.target.checked });
                 }}
                 disabled={saving}
                 sx={{
@@ -616,10 +613,10 @@ export default function UserManager() {
             }
             label={
               <Box>
-                <Typography sx={{ color: '#FF9800', fontWeight: 'bold' }}>
-                  Excluir de Analytics y Regalias
+                <Typography sx={{ color: '#FF9800', fontWeight: 'bold', fontSize: '1rem' }}>
+                  ⚠️ Excluir de Analytics y Regalias
                 </Typography>
-                <Typography variant="caption" sx={{ color: '#F4D03F99' }}>
+                <Typography variant="caption" sx={{ color: '#F4D03F99', display: 'block', mt: 0.5 }}>
                   Las reproducciones NO contaran para estadisticas ni regalias
                 </Typography>
               </Box>
@@ -628,9 +625,12 @@ export default function UserManager() {
               mb: 2,
               p: 2,
               width: '100%',
-              backgroundColor: selectedUser?.exclude_from_analytics ? '#FF980022' : 'transparent',
-              border: '1px solid #FF980044',
+              backgroundColor: selectedUser?.exclude_from_analytics ? '#FF980033' : '#FF980011',
+              border: '2px solid #FF9800',
               borderRadius: '8px',
+              '&:hover': {
+                backgroundColor: '#FF980044',
+              },
             }}
           />
 
@@ -1235,10 +1235,10 @@ export default function UserManager() {
               }
               label={
                 <Box>
-                  <Typography sx={{ color: '#FF9800', fontWeight: 'bold' }}>
-                    Excluir de Analytics y Regalias
+                  <Typography sx={{ color: '#FF9800', fontWeight: 'bold', fontSize: '1rem' }}>
+                    ⚠️ Excluir de Analytics y Regalias
                   </Typography>
-                  <Typography variant="caption" sx={{ color: '#F4D03F99' }}>
+                  <Typography variant="caption" sx={{ color: '#F4D03F99', display: 'block', mt: 0.5 }}>
                     Las reproducciones de este usuario NO contaran para estadisticas ni regalias
                   </Typography>
                 </Box>
@@ -1246,8 +1246,15 @@ export default function UserManager() {
               sx={{
                 mt: 1,
                 p: 2,
-                backgroundColor: newUserData.exclude_from_analytics ? '#FF980022' : 'transparent',
-                border: '1px solid #FF980044',
+                width: '100%',
+                backgroundColor: newUserData.exclude_from_analytics ? '#FF980033' : '#FF980011',
+                border: '2px solid #FF9800',
+                borderRadius: '8px',
+                '&:hover': {
+                  backgroundColor: '#FF980044',
+                },
+              }}
+            />,
                 borderRadius: '8px',
               }}
             />
