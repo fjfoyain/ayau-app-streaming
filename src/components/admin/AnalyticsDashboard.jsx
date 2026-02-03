@@ -1,43 +1,4 @@
 export { default } from './AnalyticsDashboardV2';
-import AccordionDetails from '@mui/material/AccordionDetails';
-import Tabs from '@mui/material/Tabs';
-import Tab from '@mui/material/Tab';
-import Chip from '@mui/material/Chip';
-import Alert from '@mui/material/Alert';
-import SearchIcon from '@mui/icons-material/Search';
-import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
-import FileDownloadIcon from '@mui/icons-material/FileDownload';
-import {
-  LineChart,
-  Line,
-  BarChart,
-  Bar,
-  PieChart,
-  Pie,
-  Cell,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  Legend,
-  ResponsiveContainer,
-} from 'recharts';
-import {
-  getPlayStats,
-  getAllAccounts,
-  getVenuesForAccount,
-  getAnalyticsByAccount,
-  getAnalyticsByVenue,
-} from '../../services/supabase-api';
-import { supabase } from '../../lib/supabase';
-
-export default function AnalyticsDashboard() {
-  const [playHistory, setPlayHistory] = useState([]);
-  const [accounts, setAccounts] = useState([]);
-  const [venues, setVenues] = useState([]);
-  const [accountBreakdown, setAccountBreakdown] = useState([]);
-  const [venueBreakdown, setVenueBreakdown] = useState([]);
-  const [tabValue, setTabValue] = useState(0);
   const [loading, setLoading] = useState(true);
   const [analyticsData, setAnalyticsData] = useState({
     overview: null,
