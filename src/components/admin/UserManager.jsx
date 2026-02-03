@@ -1,4 +1,6 @@
 import { useState, useEffect } from 'react';
+import Checkbox from '@mui/material/Checkbox';
+import FormControlLabel from '@mui/material/FormControlLabel';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import Button from '@mui/material/Button';
@@ -72,6 +74,7 @@ export default function UserManager() {
     access_level: 'location',
     client_id: '',
     location_id: '',
+    exclude_from_analytics: false,
   });
 
   useEffect(() => {
@@ -141,6 +144,7 @@ export default function UserManager() {
       access_level: 'location',
       client_id: '',
       location_id: '',
+      exclude_from_analytics: false,
     });
     setCreateUserDialogOpen(true);
   };
@@ -393,6 +397,7 @@ export default function UserManager() {
               <TableCell sx={{ color: '#F4D03F', fontWeight: 'bold' }}>Nombre</TableCell>
               <TableCell sx={{ color: '#F4D03F', fontWeight: 'bold' }} align="center">Rol</TableCell>
               <TableCell sx={{ color: '#F4D03F', fontWeight: 'bold' }}>Alcance de Acceso</TableCell>
+              <TableCell sx={{ color: '#F4D03F', fontWeight: 'bold' }} align="center">Excluido Analytics</TableCell>
               <TableCell sx={{ color: '#F4D03F', fontWeight: 'bold' }} align="center">Activo</TableCell>
               <TableCell sx={{ color: '#F4D03F', fontWeight: 'bold' }} align="center">Acciones</TableCell>
             </TableRow>
@@ -415,6 +420,25 @@ export default function UserManager() {
                 <TableCell sx={{ color: '#F4D03F99' }}>{user.full_name || '-'}</TableCell>
                 <TableCell align="center">{getRoleChip(user.role)}</TableCell>
                 <TableCell sx={{ color: '#F4D03F99' }}>{getAccessScope(user)}</TableCell>
+                <TableCell align="center">
+                  <Checkbox
+                    checked={!!user.exclude_from_analytics}
+                    onChange={async (e) => {
+                      setSaving(true);
+                      try {
+                        await updateUserProfile(user.id, { exclude_from_analytics: e.target.checked });
+                        fetchData();
+                      } catch (err) {
+                        alert('Error al actualizar exclusión de analytics');
+                      } finally {
+                        setSaving(false);
+                      }
+                    }}
+                    color="warning"
+                    inputProps={{ 'aria-label': 'Excluir de analytics' }}
+                    disabled={saving}
+                  />
+                </TableCell>
                 <TableCell align="center">
                   {user.is_active ? (
                     <CheckCircleIcon sx={{ color: '#4CAF50' }} />
@@ -583,6 +607,17 @@ export default function UserManager() {
           </Typography>
           <Box sx={{ display: 'grid', gridTemplateColumns: '2fr 1fr auto', gap: 2 }}>
             <FormControl fullWidth>
+            <FormControlLabel
+              control={
+                <Checkbox
+                  checked={!!newUserData.exclude_from_analytics}
+                  onChange={(e) => setNewUserData({ ...newUserData, exclude_from_analytics: e.target.checked })}
+                  color="warning"
+                />
+              }
+              label="Excluir de analytics y regalías (no cuenta en estadísticas)"
+              sx={{ color: '#F4D03F99', mt: 1 }}
+            />
               <InputLabel sx={{ color: '#F4D03F99', '&.Mui-focused': { color: '#F4D03F' } }}>
                 Playlist
               </InputLabel>
