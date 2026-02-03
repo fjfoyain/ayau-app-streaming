@@ -31,6 +31,8 @@ import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import CancelIcon from '@mui/icons-material/Cancel';
 import SyncIcon from '@mui/icons-material/Sync';
 import PersonIcon from '@mui/icons-material/Person';
+import QueueMusicIcon from '@mui/icons-material/QueueMusic';
+import AccountPlaylistManager from './AccountPlaylistManager';
 import {
   getAllAccountsWithOwner,
   createAccount,
@@ -46,8 +48,10 @@ export default function AccountManager() {
   const [saving, setSaving] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [playlistDialogOpen, setPlaylistDialogOpen] = useState(false);
   const [editingAccount, setEditingAccount] = useState(null);
   const [accountToDelete, setAccountToDelete] = useState(null);
+  const [selectedAccountForPlaylists, setSelectedAccountForPlaylists] = useState(null);
   const [formData, setFormData] = useState({
     name: '',
     owner_id: '',
@@ -303,6 +307,16 @@ export default function AccountManager() {
                       title="Editar cuenta"
                     >
                       <EditIcon />
+                    </IconButton>
+                    <IconButton
+                      onClick={() => {
+                        setSelectedAccountForPlaylists(account);
+                        setPlaylistDialogOpen(true);
+                      }}
+                      sx={{ color: '#9C27B0' }}
+                      title="Gestionar playlists"
+                    >
+                      <QueueMusicIcon />
                     </IconButton>
                     <IconButton
                       onClick={() => handleOpenDeleteDialog(account)}
@@ -634,6 +648,16 @@ export default function AccountManager() {
           </Button>
         </DialogActions>
       </Dialog>
+
+      {/* Playlist Management Dialog */}
+      <AccountPlaylistManager
+        account={selectedAccountForPlaylists}
+        open={playlistDialogOpen}
+        onClose={() => {
+          setPlaylistDialogOpen(false);
+          setSelectedAccountForPlaylists(null);
+        }}
+      />
     </Box>
   );
 }

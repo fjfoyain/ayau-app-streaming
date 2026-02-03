@@ -31,6 +31,8 @@ import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import CancelIcon from '@mui/icons-material/Cancel';
 import FilterListIcon from '@mui/icons-material/FilterList';
 import PersonIcon from '@mui/icons-material/Person';
+import QueueMusicIcon from '@mui/icons-material/QueueMusic';
+import LocationPlaylistManager from './LocationPlaylistManager';
 import {
   getAllVenuesWithManager,
   getVenuesForAccount,
@@ -49,8 +51,10 @@ export default function VenueManager() {
   const [saving, setSaving] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [playlistDialogOpen, setPlaylistDialogOpen] = useState(false);
   const [editingVenue, setEditingVenue] = useState(null);
   const [venueToDelete, setVenueToDelete] = useState(null);
+  const [selectedVenueForPlaylists, setSelectedVenueForPlaylists] = useState(null);
   const [selectedAccountFilter, setSelectedAccountFilter] = useState('');
   const [formData, setFormData] = useState({
     name: '',
@@ -384,6 +388,16 @@ export default function VenueManager() {
                       <EditIcon />
                     </IconButton>
                     <IconButton
+                      onClick={() => {
+                        setSelectedVenueForPlaylists(venue);
+                        setPlaylistDialogOpen(true);
+                      }}
+                      sx={{ color: '#9C27B0' }}
+                      title="Gestionar playlists"
+                    >
+                      <QueueMusicIcon />
+                    </IconButton>
+                    <IconButton
                       onClick={() => handleOpenDeleteDialog(venue)}
                       sx={{ color: '#ff5252' }}
                       title="Eliminar local"
@@ -673,6 +687,16 @@ export default function VenueManager() {
           </Button>
         </DialogActions>
       </Dialog>
+
+      {/* Playlist Management Dialog */}
+      <LocationPlaylistManager
+        location={selectedVenueForPlaylists}
+        open={playlistDialogOpen}
+        onClose={() => {
+          setPlaylistDialogOpen(false);
+          setSelectedVenueForPlaylists(null);
+        }}
+      />
     </Box>
   );
 }

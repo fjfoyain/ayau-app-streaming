@@ -1549,3 +1549,109 @@ export const completePasswordReset = async (token, newPassword) => {
     throw error
   }
 }
+
+// ================================================
+// PLAYLIST ASSIGNMENTS
+// ================================================
+
+/**
+ * Get playlists assigned to an account
+ */
+export const getAccountPlaylists = async (clientId) => {
+  const { data, error } = await supabase
+    .rpc('get_account_playlists', { p_client_id: clientId })
+
+  if (error) throw error
+  return data
+}
+
+/**
+ * Get playlists assigned to a location
+ */
+export const getLocationPlaylists = async (locationId) => {
+  const { data, error } = await supabase
+    .rpc('get_location_playlists', { p_location_id: locationId })
+
+  if (error) throw error
+  return data
+}
+
+/**
+ * Get available playlists for a location (from account, not yet assigned)
+ */
+export const getAvailablePlaylistsForLocation = async (locationId) => {
+  const { data, error } = await supabase
+    .rpc('get_available_playlists_for_location', { p_location_id: locationId })
+
+  if (error) throw error
+  return data
+}
+
+/**
+ * Assign playlist to an account
+ */
+export const assignPlaylistToAccount = async (clientId, playlistId) => {
+  const { data, error } = await supabase
+    .rpc('assign_playlist_to_account', {
+      p_client_id: clientId,
+      p_playlist_id: playlistId
+    })
+
+  if (error) throw error
+  return data
+}
+
+/**
+ * Remove playlist from an account
+ */
+export const removePlaylistFromAccount = async (clientId, playlistId) => {
+  const { data, error } = await supabase
+    .rpc('remove_playlist_from_account', {
+      p_client_id: clientId,
+      p_playlist_id: playlistId
+    })
+
+  if (error) throw error
+  return data
+}
+
+/**
+ * Assign playlist to a location
+ */
+export const assignPlaylistToLocation = async (locationId, playlistId) => {
+  const { data, error } = await supabase
+    .rpc('assign_playlist_to_location', {
+      p_location_id: locationId,
+      p_playlist_id: playlistId
+    })
+
+  if (error) throw error
+  return data
+}
+
+/**
+ * Remove playlist from a location
+ */
+export const removePlaylistFromLocation = async (locationId, playlistId) => {
+  const { data, error } = await supabase
+    .rpc('remove_playlist_from_location', {
+      p_location_id: locationId,
+      p_playlist_id: playlistId
+    })
+
+  if (error) throw error
+  return data
+}
+
+/**
+ * Get all playlists (for assignment selection)
+ */
+export const getAllPlaylistsForAssignment = async () => {
+  const { data, error } = await supabase
+    .from('playlists')
+    .select('id, name, description, is_public, cover_image_url')
+    .order('name')
+
+  if (error) throw error
+  return data
+}
