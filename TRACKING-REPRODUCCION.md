@@ -396,23 +396,143 @@ WHERE year = 2024 AND month = 1;
 
 ## 📌 Notas Importantes
 
-1. **Precisión del Tracking**:
+1. **Precision del Tracking**:
    - Registrar cada 30 segundos por seguridad (en caso de cierre de tab)
-   - Registrar al final de la canción
-   - Registrar al cambiar de canción
+   - Registrar al final de la cancion
+   - Registrar al cambiar de cancion
 
-2. **Optimización**:
+2. **Optimizacion**:
    - No hacer query a Supabase por cada segundo
-   - Acumular en memoria y guardar periódicamente
+   - Acumular en memoria y guardar periodicamente
 
 3. **Privacidad**:
-   - Solo guardar datos anónimos de reproducción
+   - Solo guardar datos anonimos de reproduccion
    - Country code es opcional
 
-4. **Validación**:
-   - Triggers automáticos validan los datos
+4. **Validacion**:
+   - Triggers automaticos validan los datos
    - No necesitas calcular `valid_for_royalties` manualmente
 
 ---
 
-¿Alguna pregunta sobre el tracking o los reportes? 🎵
+## 🚫 Exclusion de Usuarios de Analytics
+
+### Funcionalidad
+
+Ciertos usuarios pueden ser excluidos del conteo de reproducciones para que NO afecten las regalias:
+
+- **Usuarios de prueba**
+- **Administradores**
+- **Usuarios internos**
+- **Cuentas demo**
+
+### Como Excluir un Usuario
+
+1. **Al crear usuario**: Marcar checkbox "Excluir de Analytics y Regalias" en el formulario de creacion
+2. **Usuario existente**: En la tabla de usuarios, usar el checkbox en la columna "Excluido Analytics"
+3. **Desde Analytics Dashboard**: En la pestana "Excluidos" o "Calidad de Datos"
+
+### Base de Datos
+
+```sql
+-- Columna en user_profiles
+exclude_from_analytics BOOLEAN DEFAULT false
+exclude_reason VARCHAR(255)
+
+-- Vista que filtra usuarios excluidos
+analytics_valid_plays
+-- Solo incluye reproducciones de usuarios con exclude_from_analytics = false
+```
+
+### Razon de Exclusion
+
+Se puede especificar la razon al excluir:
+- Usuario de Prueba
+- Administrador
+- Usuario Interno
+- Usuario Demo
+- Actividad Fraudulenta
+- Bot Detectado
+- Cuenta Duplicada
+- Otro (personalizado)
+
+### Auditoria
+
+Todos los cambios de exclusion se registran en `analytics_exclusion_audit`:
+- Quien hizo el cambio
+- Cuando se hizo
+- Razon anterior y nueva
+- Notas adicionales
+
+---
+
+## 📊 Vistas de Analytics Mejoradas
+
+### Vistas Disponibles
+
+| Vista | Descripcion |
+|-------|-------------|
+| `analytics_overview` | Resumen general |
+| `analytics_top_songs` | Top 10 canciones |
+| `analytics_top_users` | Top 10 usuarios activos |
+| `analytics_by_day` | Reproducciones por dia |
+| `analytics_by_hour` | Reproducciones por hora |
+| `analytics_by_client` | Por cuenta/cliente |
+| `analytics_by_location` | Por ubicacion/local |
+| `analytics_weekly_trends` | Tendencias semanales |
+| `analytics_monthly_trends` | Tendencias mensuales |
+| `analytics_data_quality` | Metricas de calidad de datos |
+| `analytics_suspicious_activity` | Actividad sospechosa |
+| `excluded_analytics_users` | Usuarios excluidos |
+
+### Funciones con Rango de Fechas
+
+```sql
+-- Overview personalizado
+SELECT * FROM get_analytics_overview_range('2024-01-01', '2024-01-31');
+
+-- Top canciones personalizado
+SELECT * FROM get_top_songs_range('2024-01-01', '2024-01-31', 20);
+
+-- Datos diarios personalizado
+SELECT * FROM get_analytics_by_day_range('2024-01-01', '2024-01-31');
+
+-- Heatmap de actividad
+SELECT * FROM get_hourly_heatmap('2024-01-01', '2024-01-31');
+```
+
+### Exportar Datos
+
+```sql
+-- JSON filtrado
+SELECT * FROM export_analytics_filtered(
+  '2024-01-01'::DATE,
+  '2024-01-31'::DATE,
+  'daily',
+  NULL,  -- client_id (opcional)
+  NULL   -- location_id (opcional)
+);
+
+-- CSV filtrado
+SELECT export_analytics_csv_filtered(
+  '2024-01-01'::DATE,
+  '2024-01-31'::DATE,
+  'songs'
+);
+```
+
+---
+
+## 🗂️ Archivos SQL Relacionados
+
+| Archivo | Descripcion |
+|---------|-------------|
+| `database/supabase-schema-reportes.sql` | Schema principal de play_history |
+| `database/force-password-change-and-analytics.sql` | Exclusion de usuarios basica |
+| `database/analytics-dashboard-improved.sql` | Vistas de analytics mejoradas |
+| `database/analytics-improvements-v2.sql` | Auditoria, calidad de datos, indices |
+| `database/analytics-automated-reports.sql` | Sistema de reportes automaticos |
+
+---
+
+¿Alguna pregunta sobre el tracking o los reportes?

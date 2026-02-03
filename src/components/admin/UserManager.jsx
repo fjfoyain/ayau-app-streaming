@@ -607,17 +607,6 @@ export default function UserManager() {
           </Typography>
           <Box sx={{ display: 'grid', gridTemplateColumns: '2fr 1fr auto', gap: 2 }}>
             <FormControl fullWidth>
-            <FormControlLabel
-              control={
-                <Checkbox
-                  checked={!!newUserData.exclude_from_analytics}
-                  onChange={(e) => setNewUserData({ ...newUserData, exclude_from_analytics: e.target.checked })}
-                  color="warning"
-                />
-              }
-              label="Excluir de analytics y regalías (no cuenta en estadísticas)"
-              sx={{ color: '#F4D03F99', mt: 1 }}
-            />
               <InputLabel sx={{ color: '#F4D03F99', '&.Mui-focused': { color: '#F4D03F' } }}>
                 Playlist
               </InputLabel>
@@ -968,6 +957,35 @@ export default function UserManager() {
                 </FormControl>
               </>
             )}
+            <FormControlLabel
+              control={
+                <Checkbox
+                  checked={!!newUserData.exclude_from_analytics}
+                  onChange={(e) => setNewUserData({ ...newUserData, exclude_from_analytics: e.target.checked })}
+                  sx={{
+                    color: '#FF9800',
+                    '&.Mui-checked': { color: '#FF9800' },
+                  }}
+                />
+              }
+              label={
+                <Box>
+                  <Typography sx={{ color: '#FF9800', fontWeight: 'bold' }}>
+                    Excluir de Analytics y Regalias
+                  </Typography>
+                  <Typography variant="caption" sx={{ color: '#F4D03F99' }}>
+                    Las reproducciones de este usuario NO contaran para estadisticas ni regalias
+                  </Typography>
+                </Box>
+              }
+              sx={{
+                mt: 1,
+                p: 2,
+                backgroundColor: newUserData.exclude_from_analytics ? '#FF980022' : 'transparent',
+                border: '1px solid #FF980044',
+                borderRadius: '8px',
+              }}
+            />
             <Paper
               sx={{
                 p: 2,
@@ -977,8 +995,8 @@ export default function UserManager() {
               }}
             >
               <Typography variant="body2" sx={{ color: '#F4D03F99', fontSize: '0.85rem' }}>
-                <strong style={{ color: '#F4D03F' }}>Nota:</strong> El usuario recibirá un email de confirmación
-                para activar su cuenta. Si no proporcionas una contraseña, se generará una automáticamente.
+                <strong style={{ color: '#F4D03F' }}>Nota:</strong> El usuario recibira un email de confirmacion
+                para activar su cuenta. Si no proporcionas una contrasena, se generara una automaticamente.
               </Typography>
             </Paper>
           </Box>
