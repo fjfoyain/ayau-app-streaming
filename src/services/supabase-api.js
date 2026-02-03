@@ -1418,53 +1418,16 @@ export const getAllVenuesWithManager = async () => {
  * Eliminar usuario (soft delete - desactivar)
  */
 export const deleteUser = async (userId) => {
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) throw new Error('Not authenticated')
-
-  // Verify current user is admin
-  const { data: currentUser } = await supabase
-    .from('user_profiles')
-    .select('role')
-    .eq('id', user.id)
-    .single()
-
-  if (currentUser?.role !== 'admin') {
-    throw new Error('Solo los administradores pueden eliminar usuarios')
-  }
-
-  // Cannot delete self
-  if (userId === user.id) {
-    throw new Error('No puedes eliminar tu propia cuenta')
-  }
-
-  // Clear owner_id references
-  await supabase
-    .from('clients')
-    .update({ owner_id: null })
-    .eq('owner_id', userId)
-
-  // Clear manager_id references
-  await supabase
-    .from('locations')
-    .update({ manager_id: null })
-    .eq('manager_id', userId)
-
-  // Clear controller references in playback sessions
-  await supabase
-    .from('playback_sessions')
-    .update({ controlled_by: null })
-    .eq('controlled_by', userId)
-
-  // Soft delete: deactivate user
-  const { error } = await supabase
-    .from('user_profiles')
-    .update({ is_active: false, updated_at: new Date().toISOString() })
-    .eq('id', userId)
+  const { data, error } = await supabase.rpc('delete_user_profile', {
+    p_user_id: userId
+  })
 
   if (error) {
     console.error('Error deleting user:', error)
-    throw error
+    throw new Error(error.message || 'Error al eliminar usuario')
   }
+
+  return data
 }
 
 /**
