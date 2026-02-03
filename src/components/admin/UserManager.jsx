@@ -1027,41 +1027,7 @@ export default function UserManager() {
                 <MenuItem value="client_user">🏢 Usuario Local (Usuario de un local específico)</MenuItem>
               </Select>
             </FormControl>
-            {/* Only show access level selector for non-admin/manager users */}
-            {newUserData.role !== 'admin' && newUserData.role !== 'manager' && (
-              <FormControl fullWidth>
-                <InputLabel sx={{ color: '#F4D03F99', '&.Mui-focused': { color: '#F4D03F' } }}>
-                  Nivel de Acceso
-                </InputLabel>
-                <Select
-                  value={newUserData.access_level}
-                  onChange={(e) => setNewUserData({ ...newUserData, access_level: e.target.value, client_id: '', location_id: '' })}
-                  sx={{
-                    color: '#F4D03F',
-                    '& .MuiOutlinedInput-notchedOutline': { borderColor: '#F4D03F44' },
-                    '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#F4D03F' },
-                    '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#F4D03F' },
-                    '& .MuiSvgIcon-root': { color: '#F4D03F' },
-                  }}
-                  MenuProps={{
-                    PaperProps: {
-                      sx: {
-                        backgroundColor: '#000',
-                        border: '2px solid #F4D03F',
-                        '& .MuiMenuItem-root': {
-                          color: '#F4D03F',
-                          '&:hover': { backgroundColor: '#F4D03F22' },
-                          '&.Mui-selected': { backgroundColor: '#F4D03F33' },
-                        },
-                      },
-                    },
-                  }}
-                >
-                  <MenuItem value="account">Nivel Cuenta (acceso a todos los locales de un cliente)</MenuItem>
-                  <MenuItem value="location">Nivel Local (acceso a un local específico)</MenuItem>
-                </Select>
-              </FormControl>
-            )}
+            
             {/* Info box for admin/manager */}
             {(newUserData.role === 'admin' || newUserData.role === 'manager') && (
               <Paper
