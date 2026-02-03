@@ -395,6 +395,7 @@ export const getAllUsers = async () => {
   const { data, error } = await supabase
     .from('user_profiles')
     .select('*')
+    .eq('is_active', true)  // Only show active users
     .order('full_name')
 
   if (error) {
