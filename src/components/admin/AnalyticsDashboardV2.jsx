@@ -327,7 +327,7 @@ const AnalyticsDashboardV2 = () => {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [dateRange, data.exclusionReasons]);
+  }, [dateRange.startDate, dateRange.endDate]);
 
   useEffect(() => {
     fetchAnalytics();
