@@ -441,8 +441,8 @@ export default function UserManager() {
                   />
                 </TableCell>
                 <TableCell align="center">
-                  {user.email_confirmed_at ? (
-                    <CheckCircleIcon sx={{ color: '#2196F3' }} titleAccess="Email verificado" />
+                  {user.email_confirmed_at || user.email_verified_manually ? (
+                    <CheckCircleIcon sx={{ color: '#2196F3' }} titleAccess={user.email_verified_manually ? "Verificado manualmente" : "Email verificado"} />
                   ) : (
                     <CancelIcon sx={{ color: '#FF9800' }} titleAccess="Email no verificado" />
                   )}
@@ -520,10 +520,16 @@ export default function UserManager() {
               }}
             />
             <Chip
-              label={selectedUser?.email_confirmed_at ? 'Email Verificado' : 'Email No Verificado'}
+              label={
+                selectedUser?.email_confirmed_at
+                  ? 'Email Verificado'
+                  : selectedUser?.email_verified_manually
+                    ? 'Verificado Manualmente'
+                    : 'Email No Verificado'
+              }
               sx={{
-                backgroundColor: selectedUser?.email_confirmed_at ? '#2196F333' : '#FF980033',
-                color: selectedUser?.email_confirmed_at ? '#2196F3' : '#FF9800',
+                backgroundColor: (selectedUser?.email_confirmed_at || selectedUser?.email_verified_manually) ? '#2196F333' : '#FF980033',
+                color: (selectedUser?.email_confirmed_at || selectedUser?.email_verified_manually) ? '#2196F3' : '#FF9800',
               }}
             />
             {selectedUser?.exclude_from_analytics && (
@@ -659,7 +665,7 @@ export default function UserManager() {
           />
 
           {/* Manual Email Verification */}
-          {!selectedUser?.email_confirmed_at && (
+          {!selectedUser?.email_confirmed_at && !selectedUser?.email_verified_manually && (
             <Paper
               sx={{
                 p: 2,
@@ -683,8 +689,11 @@ export default function UserManager() {
                   if (!confirm('¿Verificar manualmente el email de este usuario?')) return;
                   setSaving(true);
                   try {
-                    await updateUserProfile(selectedUser.id, { email_confirmed_at: new Date().toISOString() });
-                    setSelectedUser({ ...selectedUser, email_confirmed_at: new Date().toISOString() });
+                    await updateUserProfile(selectedUser.id, {
+                      email_verified_manually: true,
+                      email_verified_manually_at: new Date().toISOString(),
+                    });
+                    setSelectedUser({ ...selectedUser, email_verified_manually: true });
                     fetchData();
                     alert('Email verificado manualmente');
                   } catch (err) {
