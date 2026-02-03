@@ -71,7 +71,7 @@ export default function UserManager() {
     password: '',
     full_name: '',
     role: 'user',
-    access_level: 'location',
+    access_level: 'global', // global for admin/manager, account/location for client users
     client_id: '',
     location_id: '',
     exclude_from_analytics: false,
@@ -141,7 +141,7 @@ export default function UserManager() {
       password: '',
       full_name: '',
       role: 'user',
-      access_level: 'location',
+      access_level: 'global',
       client_id: '',
       location_id: '',
       exclude_from_analytics: false,
@@ -156,9 +156,10 @@ export default function UserManager() {
       password: '',
       full_name: '',
       role: 'user',
-      access_level: 'location',
+      access_level: 'global',
       client_id: '',
       location_id: '',
+      exclude_from_analytics: false,
     });
   };
 
@@ -197,7 +198,8 @@ export default function UserManager() {
       return;
     }
 
-    // Validate access level requirements
+    // Only validate client/location for non-global access levels
+    // Admin and Manager with global access don't need client/location
     if (newUserData.access_level === 'account' && !newUserData.client_id) {
       alert('Debes seleccionar una cuenta para usuarios con nivel de cuenta');
       return;
@@ -211,10 +213,16 @@ export default function UserManager() {
     try {
       // Generar contraseña temporal si no se proporciona
       const finalPassword = newUserData.password || generateTemporaryPassword();
-      const dataToSend = { ...newUserData, password: finalPassword };
 
-      // Use createUserWithAccess if access_level fields are set
-      if (newUserData.access_level && (newUserData.client_id || newUserData.location_id)) {
+      // Prepare data - for global access, don't send client_id/location_id
+      const dataToSend = { ...newUserData, password: finalPassword };
+      if (newUserData.access_level === 'global') {
+        delete dataToSend.client_id;
+        delete dataToSend.location_id;
+      }
+
+      // Use createUserWithAccess only if client/location is set, otherwise use createUser
+      if (newUserData.access_level !== 'global' && (newUserData.client_id || newUserData.location_id)) {
         await createUserWithAccess(dataToSend);
       } else {
         await createUser(dataToSend);
@@ -339,6 +347,12 @@ export default function UserManager() {
   const getAccessScope = (user) => {
     if (user.role === 'admin') {
       return 'Acceso Total';
+    }
+    if (user.role === 'manager' && !user.client_id && !user.location_id) {
+      return 'Global (Interno)';
+    }
+    if (user.access_level === 'global' || (!user.client_id && !user.location_id)) {
+      return user.role === 'user' ? 'Sin asignar' : 'Global (Interno)';
     }
     if (user.access_level === 'account' && user.client_id) {
       const account = accounts.find((a) => a.id === user.client_id);
@@ -969,7 +983,23 @@ export default function UserManager() {
               </InputLabel>
               <Select
                 value={newUserData.role}
-                onChange={(e) => setNewUserData({ ...newUserData, role: e.target.value })}
+                onChange={(e) => {
+                  const newRole = e.target.value;
+                  // Auto-set access level based on role
+                  let newAccessLevel = 'global';
+                  if (newRole === 'user') {
+                    newAccessLevel = 'account'; // Chain users manage all locations in an account
+                  } else if (newRole === 'client_user') {
+                    newAccessLevel = 'location'; // Local users assigned to specific locations
+                  }
+                  setNewUserData({
+                    ...newUserData,
+                    role: newRole,
+                    access_level: newAccessLevel,
+                    client_id: newAccessLevel === 'global' ? '' : newUserData.client_id,
+                    location_id: newAccessLevel === 'global' ? '' : newUserData.location_id,
+                  });
+                }}
                 sx={{
                   color: '#F4D03F',
                   '& .MuiOutlinedInput-notchedOutline': { borderColor: '#F4D03F44' },
@@ -991,48 +1021,100 @@ export default function UserManager() {
                   },
                 }}
               >
-                <MenuItem value="user">Usuario Regular</MenuItem>
-                <MenuItem value="manager">Manager (Gestión de Contenido)</MenuItem>
-                <MenuItem value="admin">Administrador</MenuItem>
-                <MenuItem value="client_user">Usuario Cliente</MenuItem>
+                <MenuItem value="admin">👑 Administrador (Acceso total - Equipo Ayau)</MenuItem>
+                <MenuItem value="manager">🔧 Manager (Gestión contenido - Equipo Ayau)</MenuItem>
+                <MenuItem value="user">🏪 Usuario Cadena (Administra todos los locales de una cuenta)</MenuItem>
+                <MenuItem value="client_user">🏢 Usuario Local (Usuario de un local específico)</MenuItem>
               </Select>
             </FormControl>
-            <FormControl fullWidth>
-              <InputLabel sx={{ color: '#F4D03F99', '&.Mui-focused': { color: '#F4D03F' } }}>
-                Nivel de Acceso
-              </InputLabel>
-              <Select
-                value={newUserData.access_level}
-                onChange={(e) => setNewUserData({ ...newUserData, access_level: e.target.value, client_id: '', location_id: '' })}
-                sx={{
-                  color: '#F4D03F',
-                  '& .MuiOutlinedInput-notchedOutline': { borderColor: '#F4D03F44' },
-                  '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#F4D03F' },
-                  '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#F4D03F' },
-                  '& .MuiSvgIcon-root': { color: '#F4D03F' },
-                }}
-                MenuProps={{
-                  PaperProps: {
-                    sx: {
-                      backgroundColor: '#000',
-                      border: '2px solid #F4D03F',
-                      '& .MuiMenuItem-root': {
-                        color: '#F4D03F',
-                        '&:hover': { backgroundColor: '#F4D03F22' },
-                        '&.Mui-selected': { backgroundColor: '#F4D03F33' },
+            {/* Only show access level selector for non-admin/manager users */}
+            {newUserData.role !== 'admin' && newUserData.role !== 'manager' && (
+              <FormControl fullWidth>
+                <InputLabel sx={{ color: '#F4D03F99', '&.Mui-focused': { color: '#F4D03F' } }}>
+                  Nivel de Acceso
+                </InputLabel>
+                <Select
+                  value={newUserData.access_level}
+                  onChange={(e) => setNewUserData({ ...newUserData, access_level: e.target.value, client_id: '', location_id: '' })}
+                  sx={{
+                    color: '#F4D03F',
+                    '& .MuiOutlinedInput-notchedOutline': { borderColor: '#F4D03F44' },
+                    '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#F4D03F' },
+                    '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#F4D03F' },
+                    '& .MuiSvgIcon-root': { color: '#F4D03F' },
+                  }}
+                  MenuProps={{
+                    PaperProps: {
+                      sx: {
+                        backgroundColor: '#000',
+                        border: '2px solid #F4D03F',
+                        '& .MuiMenuItem-root': {
+                          color: '#F4D03F',
+                          '&:hover': { backgroundColor: '#F4D03F22' },
+                          '&.Mui-selected': { backgroundColor: '#F4D03F33' },
+                        },
                       },
                     },
-                  },
+                  }}
+                >
+                  <MenuItem value="account">Nivel Cuenta (acceso a todos los locales de un cliente)</MenuItem>
+                  <MenuItem value="location">Nivel Local (acceso a un local específico)</MenuItem>
+                </Select>
+              </FormControl>
+            )}
+            {/* Info box for admin/manager */}
+            {(newUserData.role === 'admin' || newUserData.role === 'manager') && (
+              <Paper
+                sx={{
+                  p: 2,
+                  backgroundColor: '#2196F311',
+                  border: '1px solid #2196F344',
+                  borderRadius: '8px',
                 }}
               >
-                <MenuItem value="account">Nivel Cuenta (acceso a todos los locales)</MenuItem>
-                <MenuItem value="location">Nivel Local (acceso a un local específico)</MenuItem>
-              </Select>
-            </FormControl>
-            {newUserData.access_level === 'account' && (
+                <Typography variant="body2" sx={{ color: '#2196F3', fontSize: '0.85rem' }}>
+                  <strong>✓ Usuario Interno (Equipo Ayau):</strong> Este usuario es parte del equipo de logística y no requiere asignación a cuentas o locales.
+                  Tiene acceso global al sistema según su rol.
+                </Typography>
+              </Paper>
+            )}
+            {/* Info box for user role */}
+            {newUserData.role === 'user' && (
+              <Paper
+                sx={{
+                  p: 2,
+                  backgroundColor: '#9C27B011',
+                  border: '1px solid #9C27B044',
+                  borderRadius: '8px',
+                }}
+              >
+                <Typography variant="body2" sx={{ color: '#9C27B0', fontSize: '0.85rem' }}>
+                  <strong>Usuario Cadena:</strong> Puede administrar múltiples locales dentro de una cuenta.
+                  Ideal para gerentes de cadenas o administradores de clientes.
+                </Typography>
+              </Paper>
+            )}
+            {/* Info box for client_user role */}
+            {newUserData.role === 'client_user' && (
+              <Paper
+                sx={{
+                  p: 2,
+                  backgroundColor: '#FF980011',
+                  border: '1px solid #FF980044',
+                  borderRadius: '8px',
+                }}
+              >
+                <Typography variant="body2" sx={{ color: '#FF9800', fontSize: '0.85rem' }}>
+                  <strong>Usuario Local:</strong> Usuario final asignado a un local específico.
+                  Solo puede reproducir música en su local asignado.
+                </Typography>
+              </Paper>
+            )}
+            {/* Only show account/location selectors for non-admin/manager users */}
+            {newUserData.access_level === 'account' && newUserData.role !== 'admin' && newUserData.role !== 'manager' && (
               <FormControl fullWidth required>
                 <InputLabel sx={{ color: '#F4D03F99', '&.Mui-focused': { color: '#F4D03F' } }}>
-                  Cuenta
+                  Cuenta (Cliente)
                 </InputLabel>
                 <Select
                   value={newUserData.client_id}
@@ -1066,11 +1148,11 @@ export default function UserManager() {
                 </Select>
               </FormControl>
             )}
-            {newUserData.access_level === 'location' && (
+            {newUserData.access_level === 'location' && newUserData.role !== 'admin' && newUserData.role !== 'manager' && (
               <>
                 <FormControl fullWidth required>
                   <InputLabel sx={{ color: '#F4D03F99', '&.Mui-focused': { color: '#F4D03F' } }}>
-                    Cuenta
+                    Cuenta (Cliente)
                   </InputLabel>
                   <Select
                     value={newUserData.client_id}
