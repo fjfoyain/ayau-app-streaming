@@ -1,30 +1,61 @@
-## 📚 ÍNDICE DE DOCUMENTACIÓN - Mejoras en Gestión de Usuarios
+## 📚 ÍNDICE DE DOCUMENTACIÓN - AYAU Sistema Completo
 
-### Documentos Principales
+### 🔴 Documentos CRÍTICOS (Leer Primero)
 
-1. **QUICK-START-USER-MANAGEMENT.md** ⭐
-   - Resumen ejecutivo
-   - Cambios principales
-   - Pasos para implementar
-   - Beneficios
+1. **SYSTEM-OVERVIEW.md** 📘
+   - Arquitectura general completa del sistema
+   - Módulos de usuarios (roles, niveles de acceso, ciclo de vida)
+   - Sistema de playback (3 modos: independent, shared_playlist, synchronized)
+   - Gestión de playlists
+   - Sistema de reportes
+   - Seguridad y RLS policies
+   - Nuevas características implementadas
+   - **Tiempo de lectura:** 30 minutos
 
-2. **IMPLEMENTATION-COMPLETE.md** 📖
+2. **PLAYBACK-SYNC-SPECIFICATION.md** 🎵
+   - Especificación completa del sistema de sincronización
+   - Tabla playback_sessions (estructura SQL)
+   - React Context SyncPlaybackContext (estado global)
+   - Componentes: MusicPlayer, SyncStatusIndicator, DJModePanel
+   - 3 Flujos de operación detallados
+   - Integración con API backend
+   - Real-time updates vía WebSockets
+   - Casos de uso reales
+   - **Tiempo de lectura:** 20 minutos
+
+3. **DEMO-USERS-INVESTIGATION.md** 🔍
+   - Investigación: Por qué usuarios demo no aparecen en UI
+   - 3 Soluciones (Dashboard, CLI, Edge Function)
+   - Script SQL mejorado v2
+   - Checklist de implementación
+   - Debugging guide
+   - **Tiempo de lectura:** 15 minutos
+
+### 🟡 Documentos de Implementación (Referencia)
+
+4. **QUICK-START-USER-MANAGEMENT.md** ⭐
+   - Resumen ejecutivo ultra-conciso
+   - 5 puntos clave del sistema
+   - Guía rápida de uso
+   - Links a documentación detallada
+
+5. **IMPLEMENTATION-COMPLETE.md** 📖
    - Documentación técnica completa
    - Arquitectura de base de datos
    - Nuevas funciones SQL
    - Cambios en frontend
    - Configuración requerida
 
-3. **USER-MANAGEMENT-IMPROVEMENTS.md** 🗂️
+6. **USER-MANAGEMENT-IMPROVEMENTS.md** 🗂️
    - Plan de implementación original
    - Problemas identificados
    - Soluciones propuestas
    - Fases de implementación
 
-4. **TESTING-CHECKLIST.md** ✅
+7. **TESTING-CHECKLIST.md** ✅
    - Guía completa de testing
-   - 4 partes: Password Reset, Creación de Usuarios, Demo, Integración
-   - Más de 40 test cases
+   - 40+ casos de prueba
+   - Cobertura: Password Reset, Creación, Demo Users, Integración, Edge Cases
    - Tabla de verificación final
 
 ### Documentos Técnicos (SQL)

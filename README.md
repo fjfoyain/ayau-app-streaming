@@ -258,9 +258,32 @@ Los administradores pueden:
 
 ## 📚 Documentación Adicional
 
+### 🔴 Documentación Principal (Recomendado Leer)
+
+- **[DOCUMENTATION-SUMMARY.md](DOCUMENTATION-SUMMARY.md)** - Resumen de toda la documentación (3,600+ líneas)
+- **[GETTING-STARTED-DOCS.md](GETTING-STARTED-DOCS.md)** - Guía de navegación personalizada por rol
+- **[EXECUTIVE-SUMMARY.md](EXECUTIVE-SUMMARY.md)** - Resumen ejecutivo de implementación
+
+### 🟡 Documentación Técnica (Especificaciones)
+
+- **[SYSTEM-OVERVIEW.md](SYSTEM-OVERVIEW.md)** - Arquitectura completa del sistema (751 líneas)
+- **[PLAYBACK-SYNC-SPECIFICATION.md](PLAYBACK-SYNC-SPECIFICATION.md)** - Sistema de sincronización de playback (669 líneas)
+- **[ARCHITECTURE-VISUAL.md](ARCHITECTURE-VISUAL.md)** - Diagramas y flujos visuales (685 líneas)
+
+### 🟢 Documentación de Implementación (Referencia)
+
+- **[DEMO-USERS-INVESTIGATION.md](DEMO-USERS-INVESTIGATION.md)** - Investigación sobre usuarios demo (450 líneas)
+- **[IMPLEMENTATION-COMPLETE.md](IMPLEMENTATION-COMPLETE.md)** - Cambios implementados
+- **[QUICK-START-USER-MANAGEMENT.md](QUICK-START-USER-MANAGEMENT.md)** - Guía rápida de gestión de usuarios
+- **[USER-MANAGEMENT-IMPROVEMENTS.md](USER-MANAGEMENT-IMPROVEMENTS.md)** - Plan original de mejoras
+- **[TESTING-CHECKLIST.md](TESTING-CHECKLIST.md)** - 40+ casos de prueba
+
+### 📁 Documentación Existente
+
 - [Plan de Implementación](PLAN-IMPLEMENTACION.md)
 - [Tracking de Reproducción](TRACKING-REPRODUCCION.md)
-- [Guía de Setup de Base de Datos](DATABASE-SETUP.md) (nuevo)
+- [Guía de Setup de Base de Datos](DATABASE-SETUP.md)
+- [Índice de Documentación](DOCUMENTATION-INDEX.md)
 
 ## 🛠️ Scripts Disponibles
 
