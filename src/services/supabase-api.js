@@ -1,26 +1,38 @@
 import { supabase } from '../lib/supabase'
 
 /**
- * Obtener todas las playlists del usuario autenticado
- * Las políticas RLS se encargan de filtrar automáticamente:
- * - Admins ven TODAS las playlists
- * - Usuarios regulares solo ven playlists públicas o con permisos asignados
+ * Obtener playlists del usuario autenticado según su rol:
+ * - admin / manager: todas las playlists (vía RLS)
+ * - user (Usuario Cadena, access_level=account): playlists asignadas a su cuenta
+ * - client_user (Usuario Local, access_level=location): playlists asignadas a su local
  */
 export const getUserPlaylists = async () => {
-  // Consultar directamente playlists - RLS filtra automáticamente
-  const { data, error } = await supabase
-    .from('playlists')
-    .select('*')
-    .order('name')
+  const profile = await getCurrentUserProfile();
+  if (!profile) return [];
 
-  if (error) {
-    console.error('Error fetching playlists:', error);
-    throw error;
+  let rawPlaylists = [];
+
+  if (profile.role === 'admin' || profile.role === 'manager') {
+    const { data, error } = await supabase
+      .from('playlists')
+      .select('*')
+      .order('name');
+    if (error) {
+      console.error('Error fetching playlists:', error);
+      throw error;
+    }
+    rawPlaylists = data || [];
+  } else if (profile.access_level === 'account' && profile.client_id) {
+    // Usuario Cadena: playlists asignadas a la cuenta
+    rawPlaylists = await getAccountPlaylists(profile.client_id) || [];
+  } else if (profile.access_level === 'location' && profile.location_id) {
+    // Usuario Local: playlists asignadas al local
+    rawPlaylists = await getLocationPlaylists(profile.location_id) || [];
   }
 
   // Convert playlist cover images to signed URLs
   const playlistsWithSignedCovers = await Promise.all(
-    data.map(async (playlist) => {
+    rawPlaylists.map(async (playlist) => {
       let coverUrl = playlist.cover_image_url;
 
       // Convert cover to signed URL if it's a storage path (not http/https)

@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
-import { getUserPlaylists, isManagerOrAdmin, getPlaylistSongs } from "../services/supabase-api";
+import { getUserPlaylists, isManagerOrAdmin, getPlaylistSongs, getCurrentUserProfile } from "../services/supabase-api";
 import MusicPlayer from "../components/MusicPlayer";
 import Button from '@mui/material/Button';
 import IconButton from '@mui/material/IconButton';
@@ -37,10 +37,23 @@ export default function HomePage({ session }) {
 
   useEffect(() => {
     if (session?.user) {
+      checkActiveStatus();
       fetchPlaylists();
       checkAdminStatus();
     }
   }, [session]);
+
+  const checkActiveStatus = async () => {
+    try {
+      const profile = await getCurrentUserProfile();
+      if (profile && profile.is_active === false) {
+        // User has been deactivated — sign out immediately
+        await supabase.auth.signOut();
+      }
+    } catch {
+      // If we can't fetch the profile, allow access (fail open)
+    }
+  };
 
   const fetchPlaylists = async () => {
     setLoadingPlaylists(true);
