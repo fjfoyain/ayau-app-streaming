@@ -26,18 +26,33 @@ export default function PasswordReset() {
   const [success, setSuccess] = useState('');
   const [passwordStrength, setPasswordStrength] = useState(0);
 
-  // Detect if the user arrived via a password-reset email link.
-  // Supabase puts the token in the URL hash (#access_token=...&type=recovery).
+  // Detect if the user arrived via a password-reset or invite email link.
+  // Supabase puts the token type in the URL hash (#access_token=...&type=recovery|invite).
   useEffect(() => {
-    // Fast path: check the hash before Supabase SDK clears it
     const hashParams = new URLSearchParams(window.location.hash.replace('#', ''));
-    if (hashParams.get('type') === 'recovery') {
+    const type = hashParams.get('type');
+    const hashError = hashParams.get('error_code');
+
+    // Handle expired or invalid link — show a clear message instead of a blank form
+    if (hashError === 'otp_expired' || hashParams.get('error') === 'access_denied') {
+      setError('El enlace ha expirado o ya fue utilizado. Solicita al administrador que reenvíe la invitación, o usa "Olvidé mi contraseña" desde el login.');
+      return;
+    }
+
+    // Fast path: jump to password form if the hash already has the token type
+    if (type === 'recovery' || type === 'invite') {
       setStep(1);
     }
 
-    // Async path: Supabase fires PASSWORD_RECOVERY once the token is exchanged
+    // Async path: Supabase fires PASSWORD_RECOVERY (reset) or SIGNED_IN (invite)
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
       if (event === 'PASSWORD_RECOVERY') {
+        setStep(1);
+        setError('');
+        setSuccess('');
+      }
+      // Invite links fire SIGNED_IN after the token is exchanged
+      if (event === 'SIGNED_IN' && type === 'invite') {
         setStep(1);
         setError('');
         setSuccess('');
