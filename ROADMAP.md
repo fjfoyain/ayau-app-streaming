@@ -9,10 +9,7 @@
 
 **Immediate priority:**
 
-1. **`vercel.json` SPA routing** — verify deep links work on Vercel
-   - Try navigating directly to `/admin` after deploy — if 404, add `{ "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }] }`
-
-2. **Testing** (Priority 2)
+1. **Testing** (Priority 2)
    - Install Vitest + Testing Library
    - First tests: `supabase-api.js` service layer
    - GitHub Actions CI makes sense once tests exist (not before)
