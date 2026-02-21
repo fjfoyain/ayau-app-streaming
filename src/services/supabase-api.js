@@ -419,44 +419,48 @@ export const getAllUsers = async () => {
 }
 
 /**
- * Crear nuevo usuario con signup
- * El usuario recibirá un email de confirmación
- * El trigger de la base de datos creará automáticamente el perfil
+ * Invitar usuario vía Edge Function (usa service_role para inviteUserByEmail).
+ * El usuario recibirá un email con un link para establecer su contraseña.
+ * La Edge Function también actualiza el perfil con access_level/client_id/location_id.
  */
-export const createUser = async (userData) => {
-  // Registrar usuario (enviará email de confirmación)
-  const { data, error } = await supabase.auth.signUp({
-    email: userData.email,
-    password: userData.password || generateRandomPassword(),
-    options: {
-      data: {
-        full_name: userData.full_name,
-        role: userData.role || 'user'
-      },
-      emailRedirectTo: window.location.origin
-    }
+export const inviteUser = async (userData) => {
+  const { data, error } = await supabase.functions.invoke('invite-user', {
+    body: {
+      action: 'invite',
+      email: userData.email,
+      full_name: userData.full_name,
+      role: userData.role || 'user',
+      access_level: userData.access_level || 'global',
+      client_id: userData.client_id || null,
+      location_id: userData.location_id || null,
+      redirectTo: window.location.origin + '/password-reset',
+    },
   })
-
   if (error) throw error
-
-  // El trigger handle_new_user() creará automáticamente el perfil
-  // Esperar un momento para que se cree el perfil
-  await new Promise(resolve => setTimeout(resolve, 1000))
-
-  return data.user
+  if (data?.error) throw new Error(data.error)
+  return data?.user
 }
 
 /**
- * Generar contraseña aleatoria segura
+ * Reenviar email de invitación a un usuario que no ha confirmado su cuenta.
  */
-const generateRandomPassword = () => {
-  const length = 12
-  const charset = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*'
-  let password = ''
-  for (let i = 0; i < length; i++) {
-    password += charset.charAt(Math.floor(Math.random() * charset.length))
-  }
-  return password
+export const resendInvitation = async (email) => {
+  const { data, error } = await supabase.functions.invoke('invite-user', {
+    body: {
+      action: 'resend',
+      email,
+      redirectTo: window.location.origin + '/password-reset',
+    },
+  })
+  if (error) throw error
+  if (data?.error) throw new Error(data.error)
+}
+
+/**
+ * Crear nuevo usuario — delega a inviteUser (flujo de invitación).
+ */
+export const createUser = async (userData) => {
+  return inviteUser(userData)
 }
 
 /**
@@ -924,47 +928,11 @@ export const getVenuesWithStats = async () => {
 // ================================================
 
 /**
- * Crear usuario con nivel de acceso (account o location)
+ * Crear usuario con nivel de acceso (account o location) — delega a inviteUser.
+ * La Edge Function gestiona la actualización del perfil.
  */
 export const createUserWithAccess = async (userData) => {
-  // First create the auth user
-  const { data, error } = await supabase.auth.signUp({
-    email: userData.email,
-    password: userData.password || generateRandomPassword(),
-    options: {
-      data: {
-        full_name: userData.full_name,
-        role: userData.role || 'user'
-      },
-      emailRedirectTo: window.location.origin
-    }
-  })
-
-  if (error) {
-    console.error('Error creating user:', error)
-    throw error
-  }
-
-  // Wait for profile to be created by trigger
-  await new Promise(resolve => setTimeout(resolve, 1000))
-
-  // Update profile with access level and account/venue assignment
-  const profileUpdates = {
-    access_level: userData.access_level || 'location'
-  }
-
-  if (userData.access_level === 'account') {
-    profileUpdates.client_id = userData.client_id
-    profileUpdates.location_id = null
-  } else {
-    profileUpdates.location_id = userData.location_id
-    // Optionally clear client_id for clarity
-    profileUpdates.client_id = null
-  }
-
-  await updateUserProfile(data.user.id, profileUpdates)
-
-  return data.user
+  return inviteUser(userData)
 }
 
 /**

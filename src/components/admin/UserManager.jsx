@@ -31,6 +31,7 @@ import PersonIcon from '@mui/icons-material/Person';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import CancelIcon from '@mui/icons-material/Cancel';
 import DeleteIcon from '@mui/icons-material/Delete';
+import EmailIcon from '@mui/icons-material/Email';
 import {
   getAllUsers,
   createUser,
@@ -44,6 +45,7 @@ import {
   getAllVenues,
   getVenuesForAccount,
   deleteUser,
+  resendInvitation,
 } from '../../services/supabase-api';
 
 export default function UserManager() {
@@ -58,17 +60,16 @@ export default function UserManager() {
   const [permissionsDialogOpen, setPermissionsDialogOpen] = useState(false);
   const [createUserDialogOpen, setCreateUserDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [passwordDialogOpen, setPasswordDialogOpen] = useState(false);
+  const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
   const [userToDelete, setUserToDelete] = useState(null);
   const [selectedUser, setSelectedUser] = useState(null);
   const [selectedRole, setSelectedRole] = useState('');
   const [userPermissions, setUserPermissions] = useState([]);
   const [selectedPlaylist, setSelectedPlaylist] = useState('');
   const [selectedPermissionLevel, setSelectedPermissionLevel] = useState('view');
-  const [generatedPassword, setGeneratedPassword] = useState('');
+  const [resendingInvite, setResendingInvite] = useState(null);
   const [newUserData, setNewUserData] = useState({
     email: '',
-    password: '',
     full_name: '',
     role: 'user',
     access_level: 'global', // global for admin/manager, account/location for client users
@@ -145,7 +146,6 @@ export default function UserManager() {
   const handleOpenCreateUserDialog = () => {
     setNewUserData({
       email: '',
-      password: '',
       full_name: '',
       role: 'user',
       access_level: 'global',
@@ -160,7 +160,6 @@ export default function UserManager() {
     setCreateUserDialogOpen(false);
     setNewUserData({
       email: '',
-      password: '',
       full_name: '',
       role: 'user',
       access_level: 'global',
@@ -170,33 +169,10 @@ export default function UserManager() {
     });
   };
 
-  // Generar contraseña temporal segura
-  const generateTemporaryPassword = () => {
-    const length = 12;
-    const charset = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*';
-    let password = '';
-    for (let i = 0; i < length; i++) {
-      password += charset.charAt(Math.floor(Math.random() * charset.length));
-    }
-    return password;
-  };
-
-  // Handlers para modal de contraseña
-  const handleOpenPasswordDialog = (password) => {
-    setGeneratedPassword(password);
-    setPasswordDialogOpen(true);
-  };
-
-  const handleClosePasswordDialog = () => {
-    setPasswordDialogOpen(false);
-    setGeneratedPassword('');
+  const handleCloseInviteDialog = () => {
+    setInviteDialogOpen(false);
     handleCloseCreateUserDialog();
     fetchData();
-  };
-
-  const handleCopyPassword = () => {
-    navigator.clipboard.writeText(generatedPassword);
-    alert('Contraseña copiada al portapapeles');
   };
 
   const handleCreateUser = async () => {
@@ -205,8 +181,6 @@ export default function UserManager() {
       return;
     }
 
-    // Only validate client/location for non-global access levels
-    // Admin and Manager with global access don't need client/location
     if (newUserData.access_level === 'account' && !newUserData.client_id) {
       alert('Debes seleccionar una cuenta para usuarios con nivel de cuenta');
       return;
@@ -218,29 +192,25 @@ export default function UserManager() {
 
     setSaving(true);
     try {
-      // Generar contraseña temporal si no se proporciona
-      const finalPassword = newUserData.password || generateTemporaryPassword();
-
-      // Prepare data - for global access, don't send client_id/location_id
-      const dataToSend = { ...newUserData, password: finalPassword };
-      if (newUserData.access_level === 'global') {
-        delete dataToSend.client_id;
-        delete dataToSend.location_id;
-      }
-
-      // Use createUserWithAccess only if client/location is set, otherwise use createUser
-      if (newUserData.access_level !== 'global' && (newUserData.client_id || newUserData.location_id)) {
-        await createUserWithAccess(dataToSend);
-      } else {
-        await createUser(dataToSend);
-      }
-
-      // Mostrar modal con contraseña temporal
-      handleOpenPasswordDialog(finalPassword);
+      await createUser(newUserData);
+      setInviteDialogOpen(true);
     } catch (error) {
       console.error('Error creating user:', error);
       alert('Error al crear usuario: ' + error.message);
       setSaving(false);
+    }
+  };
+
+  const handleResendInvitation = async (user) => {
+    setResendingInvite(user.id);
+    try {
+      await resendInvitation(user.email);
+      alert(`Invitación reenviada a ${user.email}`);
+    } catch (error) {
+      console.error('Error resending invitation:', error);
+      alert('Error al reenviar la invitación: ' + error.message);
+    } finally {
+      setResendingInvite(null);
     }
   };
 
@@ -490,6 +460,20 @@ export default function UserManager() {
                   >
                     <PlaylistAddIcon />
                   </IconButton>
+                  {!user.email_confirmed_at && (
+                    <IconButton
+                      onClick={() => handleResendInvitation(user)}
+                      disabled={resendingInvite === user.id}
+                      sx={{ color: '#FFC107' }}
+                      title="Reenviar invitación"
+                    >
+                      {resendingInvite === user.id ? (
+                        <CircularProgress size={20} sx={{ color: '#FFC107' }} />
+                      ) : (
+                        <EmailIcon />
+                      )}
+                    </IconButton>
+                  )}
                   <IconButton
                     onClick={() => handleOpenDeleteDialog(user)}
                     sx={{ color: '#ff5252' }}
@@ -952,23 +936,6 @@ export default function UserManager() {
                 '& .MuiInputLabel-root.Mui-focused': { color: '#F4D03F' },
               }}
             />
-            <TextField
-              label="Contraseña (opcional - se generará automáticamente)"
-              type="password"
-              fullWidth
-              value={newUserData.password}
-              onChange={(e) => setNewUserData({ ...newUserData, password: e.target.value })}
-              sx={{
-                '& .MuiOutlinedInput-root': {
-                  color: '#F4D03F',
-                  '& fieldset': { borderColor: '#F4D03F44' },
-                  '&:hover fieldset': { borderColor: '#F4D03F' },
-                  '&.Mui-focused fieldset': { borderColor: '#F4D03F' },
-                },
-                '& .MuiInputLabel-root': { color: '#F4D03F99' },
-                '& .MuiInputLabel-root.Mui-focused': { color: '#F4D03F' },
-              }}
-            />
             <FormControl fullWidth>
               <InputLabel sx={{ color: '#F4D03F99', '&.Mui-focused': { color: '#F4D03F' } }}>
                 Rol
@@ -1321,10 +1288,10 @@ export default function UserManager() {
         </DialogActions>
       </Dialog>
 
-      {/* Temporary Password Dialog */}
+      {/* Invitation Sent Dialog */}
       <Dialog
-        open={passwordDialogOpen}
-        onClose={passwordDialogOpen ? undefined : handleClosePasswordDialog}
+        open={inviteDialogOpen}
+        onClose={undefined}
         maxWidth="sm"
         fullWidth
         PaperProps={{
@@ -1336,11 +1303,11 @@ export default function UserManager() {
         }}
       >
         <DialogTitle sx={{ color: '#4CAF50', fontWeight: 'bold' }}>
-          ✓ Usuario Creado Exitosamente
+          ✓ Invitación Enviada
         </DialogTitle>
         <DialogContent>
           <Box sx={{ mt: 2 }}>
-            <Typography sx={{ color: '#F4D03F', mb: 2 }}>
+            <Typography sx={{ color: '#F4D03F', mb: 3 }}>
               El usuario <strong>{newUserData.full_name}</strong> ha sido creado exitosamente.
             </Typography>
 
@@ -1354,68 +1321,41 @@ export default function UserManager() {
                 textAlign: 'center',
               }}
             >
-              <Typography sx={{ color: '#F4D03F99', mb: 1, fontSize: '0.85rem' }}>
-                CONTRASEÑA TEMPORAL:
+              <EmailIcon sx={{ color: '#4CAF50', fontSize: 40, mb: 1 }} />
+              <Typography sx={{ color: '#4CAF50', fontWeight: 'bold', mb: 1 }}>
+                Email enviado a:
               </Typography>
-              <Typography
-                sx={{
-                  color: '#4CAF50',
-                  fontSize: '1.3rem',
-                  fontWeight: 'bold',
-                  fontFamily: 'monospace',
-                  mb: 2,
-                  wordBreak: 'break-all',
-                }}
-              >
-                {generatedPassword}
+              <Typography sx={{ color: '#F4D03F', fontFamily: 'monospace', fontSize: '1rem' }}>
+                {newUserData.email}
               </Typography>
-              <Button
-                variant="outlined"
-                onClick={handleCopyPassword}
-                sx={{
-                  borderColor: '#4CAF50',
-                  color: '#4CAF50',
-                  '&:hover': { backgroundColor: '#4CAF5022' },
-                }}
-              >
-                Copiar Contraseña
-              </Button>
             </Paper>
 
             <Paper
               sx={{
                 p: 2,
-                backgroundColor: '#FFC10722',
-                border: '1px solid #FFC107',
+                backgroundColor: '#2196F322',
+                border: '1px solid #2196F3',
                 borderRadius: '8px',
-                mb: 2,
               }}
             >
-              <Typography sx={{ color: '#FFC107', fontSize: '0.85rem', fontWeight: 'bold', mb: 1 }}>
-                ⚠️ IMPORTANTE:
+              <Typography sx={{ color: '#2196F3', fontSize: '0.85rem', fontWeight: 'bold', mb: 1 }}>
+                ℹ️ Próximos pasos:
               </Typography>
               <Typography sx={{ color: '#F4D03F99', fontSize: '0.85rem' }}>
-                1. Esta contraseña será requerida en el primer login.
+                1. El usuario recibirá un email con un link para establecer su contraseña.
               </Typography>
               <Typography sx={{ color: '#F4D03F99', fontSize: '0.85rem', mt: 0.5 }}>
-                2. El usuario recibirá un email de confirmación en {newUserData.email}
+                2. Al hacer click en el link podrá ingresar al sistema.
               </Typography>
               <Typography sx={{ color: '#F4D03F99', fontSize: '0.85rem', mt: 0.5 }}>
-                3. Se recomienda compartir la contraseña de forma segura.
-              </Typography>
-              <Typography sx={{ color: '#F4D03F99', fontSize: '0.85rem', mt: 0.5 }}>
-                4. El usuario puede cambiar su contraseña después del login.
+                3. Si no lo recibe, usa el botón de email en la lista de usuarios para reenviar.
               </Typography>
             </Paper>
-
-            <Typography sx={{ color: '#F4D03F66', fontSize: '0.8rem', textAlign: 'center' }}>
-              O el usuario puede usar el link "Olvidé mi contraseña" para establecer su propia contraseña.
-            </Typography>
           </Box>
         </DialogContent>
         <DialogActions sx={{ p: 3 }}>
           <Button
-            onClick={handleClosePasswordDialog}
+            onClick={handleCloseInviteDialog}
             variant="contained"
             fullWidth
             sx={{
