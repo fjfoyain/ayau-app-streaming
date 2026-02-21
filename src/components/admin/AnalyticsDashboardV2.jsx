@@ -50,6 +50,7 @@ import {
   ZAxis,
 } from 'recharts';
 import { supabase } from '../../lib/supabase';
+import logger from '../../utils/logger';
 import FileDownloadIcon from '@mui/icons-material/FileDownload';
 import TrendingUpIcon from '@mui/icons-material/TrendingUp';
 import GroupIcon from '@mui/icons-material/Group';
@@ -157,149 +158,149 @@ const AnalyticsDashboardV2 = () => {
   const fetchAnalytics = useCallback(async () => {
     setLoading(true);
     try {
-      console.log('[Analytics] Starting fetch...');
+      logger.log('[Analytics] Starting fetch...');
 
       // Overview with custom date range
-      console.log('[Analytics] Fetching overview...');
+      logger.log('[Analytics] Fetching overview...');
       const { data: overviewData, error: overviewError } = await supabase.rpc('get_analytics_overview_range', {
         p_start_date: dateRange.startDate,
         p_end_date: dateRange.endDate,
       });
       if (overviewError) console.error('[Analytics] Overview error:', overviewError);
-      console.log('[Analytics] Overview done:', overviewData);
+      logger.log('[Analytics] Overview done:', overviewData);
 
       const overview = overviewData?.[0] || null;
 
       // Top Songs with date range
-      console.log('[Analytics] Fetching top songs...');
+      logger.log('[Analytics] Fetching top songs...');
       const { data: topSongs, error: topSongsError } = await supabase.rpc('get_top_songs_range', {
         p_start_date: dateRange.startDate,
         p_end_date: dateRange.endDate,
         p_limit: 10,
       });
       if (topSongsError) console.error('[Analytics] Top songs error:', topSongsError);
-      console.log('[Analytics] Top songs done:', topSongs?.length);
+      logger.log('[Analytics] Top songs done:', topSongs?.length);
 
       // Top Users
-      console.log('[Analytics] Fetching top users...');
+      logger.log('[Analytics] Fetching top users...');
       const { data: topUsers, error: topUsersError } = await supabase
         .from('analytics_top_users')
         .select('*')
         .limit(10);
       if (topUsersError) console.error('[Analytics] Top users error:', topUsersError);
-      console.log('[Analytics] Top users done:', topUsers?.length);
+      logger.log('[Analytics] Top users done:', topUsers?.length);
 
       // Daily data with date range
-      console.log('[Analytics] Fetching by day...');
+      logger.log('[Analytics] Fetching by day...');
       const { data: byDay, error: byDayError } = await supabase.rpc('get_analytics_by_day_range', {
         p_start_date: dateRange.startDate,
         p_end_date: dateRange.endDate,
       });
       if (byDayError) console.error('[Analytics] By day error:', byDayError);
-      console.log('[Analytics] By day done:', byDay?.length);
+      logger.log('[Analytics] By day done:', byDay?.length);
 
       // Hourly data
-      console.log('[Analytics] Fetching by hour...');
+      logger.log('[Analytics] Fetching by hour...');
       const { data: byHour, error: byHourError } = await supabase
         .from('analytics_by_hour')
         .select('*')
         .order('hora', { ascending: false })
         .limit(24);
       if (byHourError) console.error('[Analytics] By hour error:', byHourError);
-      console.log('[Analytics] By hour done:', byHour?.length);
+      logger.log('[Analytics] By hour done:', byHour?.length);
 
       // Weekly trends
-      console.log('[Analytics] Fetching weekly...');
+      logger.log('[Analytics] Fetching weekly...');
       const { data: weeklyTrends, error: weeklyError } = await supabase
         .from('analytics_weekly_trends')
         .select('*')
         .order('semana', { ascending: false });
       if (weeklyError) console.error('[Analytics] Weekly error:', weeklyError);
-      console.log('[Analytics] Weekly done:', weeklyTrends?.length);
+      logger.log('[Analytics] Weekly done:', weeklyTrends?.length);
 
       // Monthly trends
-      console.log('[Analytics] Fetching monthly...');
+      logger.log('[Analytics] Fetching monthly...');
       const { data: monthlyTrends, error: monthlyError } = await supabase
         .from('analytics_monthly_trends')
         .select('*')
         .order('mes', { ascending: false });
       if (monthlyError) console.error('[Analytics] Monthly error:', monthlyError);
-      console.log('[Analytics] Monthly done:', monthlyTrends?.length);
+      logger.log('[Analytics] Monthly done:', monthlyTrends?.length);
 
       // By Client
-      console.log('[Analytics] Fetching by client...');
+      logger.log('[Analytics] Fetching by client...');
       const { data: byClient, error: byClientError } = await supabase
         .from('analytics_by_client')
         .select('*')
         .order('reproducciones', { ascending: false });
       if (byClientError) console.error('[Analytics] By client error:', byClientError);
-      console.log('[Analytics] By client done:', byClient?.length);
+      logger.log('[Analytics] By client done:', byClient?.length);
 
       // By Location
-      console.log('[Analytics] Fetching by location...');
+      logger.log('[Analytics] Fetching by location...');
       const { data: byLocation, error: byLocationError } = await supabase
         .from('analytics_by_location')
         .select('*')
         .order('reproducciones', { ascending: false });
       if (byLocationError) console.error('[Analytics] By location error:', byLocationError);
-      console.log('[Analytics] By location done:', byLocation?.length);
+      logger.log('[Analytics] By location done:', byLocation?.length);
 
       // Excluded Users
-      console.log('[Analytics] Fetching excluded users...');
+      logger.log('[Analytics] Fetching excluded users...');
       const { data: excludedUsers, error: excludedError } = await supabase
         .from('excluded_analytics_users')
         .select('*');
       if (excludedError) console.error('[Analytics] Excluded error:', excludedError);
-      console.log('[Analytics] Excluded done:', excludedUsers?.length);
+      logger.log('[Analytics] Excluded done:', excludedUsers?.length);
 
       // Data Quality
-      console.log('[Analytics] Fetching data quality...');
+      logger.log('[Analytics] Fetching data quality...');
       const { data: dataQuality, error: qualityError } = await supabase
         .from('analytics_data_quality')
         .select('*')
         .order('fecha', { ascending: false })
         .limit(30);
       if (qualityError) console.error('[Analytics] Quality error:', qualityError);
-      console.log('[Analytics] Quality done:', dataQuality?.length);
+      logger.log('[Analytics] Quality done:', dataQuality?.length);
 
       // Suspicious Activity
-      console.log('[Analytics] Fetching suspicious...');
+      logger.log('[Analytics] Fetching suspicious...');
       const { data: suspiciousActivity, error: suspiciousError } = await supabase
         .from('analytics_suspicious_activity')
         .select('*')
         .limit(50);
       if (suspiciousError) console.error('[Analytics] Suspicious error:', suspiciousError);
-      console.log('[Analytics] Suspicious done:', suspiciousActivity?.length);
+      logger.log('[Analytics] Suspicious done:', suspiciousActivity?.length);
 
       // Duplicate Plays
-      console.log('[Analytics] Fetching duplicates...');
+      logger.log('[Analytics] Fetching duplicates...');
       const { data: duplicatePlays, error: duplicatesError } = await supabase
         .from('analytics_duplicate_plays')
         .select('*')
         .limit(50);
       if (duplicatesError) console.error('[Analytics] Duplicates error:', duplicatesError);
-      console.log('[Analytics] Duplicates done:', duplicatePlays?.length);
+      logger.log('[Analytics] Duplicates done:', duplicatePlays?.length);
 
       // Audit Log
-      console.log('[Analytics] Fetching audit log...');
+      logger.log('[Analytics] Fetching audit log...');
       const { data: auditLog, error: auditError } = await supabase
         .from('analytics_exclusion_audit_view')
         .select('*')
         .order('created_at', { ascending: false })
         .limit(100);
       if (auditError) console.error('[Analytics] Audit error:', auditError);
-      console.log('[Analytics] Audit done:', auditLog?.length);
+      logger.log('[Analytics] Audit done:', auditLog?.length);
 
       // Heatmap data
-      console.log('[Analytics] Fetching heatmap...');
+      logger.log('[Analytics] Fetching heatmap...');
       const { data: heatmapData, error: heatmapError } = await supabase.rpc('get_hourly_heatmap', {
         p_start_date: dateRange.startDate,
         p_end_date: dateRange.endDate,
       });
       if (heatmapError) console.error('[Analytics] Heatmap error:', heatmapError);
-      console.log('[Analytics] Heatmap done:', heatmapData?.length);
+      logger.log('[Analytics] Heatmap done:', heatmapData?.length);
 
-      console.log('[Analytics] All fetches done, setting data...');
+      logger.log('[Analytics] All fetches done, setting data...');
       setData({
         overview,
         topSongs: topSongs || [],
@@ -318,12 +319,12 @@ const AnalyticsDashboardV2 = () => {
         heatmapData: heatmapData || [],
         exclusionReasons: data.exclusionReasons,
       });
-      console.log('[Analytics] Data set successfully!');
+      logger.log('[Analytics] Data set successfully!');
     } catch (error) {
       console.error('[Analytics] CATCH ERROR:', error);
       setSnackbar({ open: true, message: 'Error cargando analytics: ' + error.message, severity: 'error' });
     } finally {
-      console.log('[Analytics] Finally block - setting loading to false');
+      logger.log('[Analytics] Finally block - setting loading to false');
       setLoading(false);
       setRefreshing(false);
     }

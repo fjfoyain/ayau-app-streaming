@@ -13,6 +13,7 @@ import IconButton from "@mui/material/IconButton";
 import { formatTime } from '../utils/musicPlayer';
 import { usePlayer } from "../context/PlayerContext";
 import { supabase } from '../lib/supabase';
+import logger from '../utils/logger';
 import { recordPlay } from '../services/supabase-api';
 import SyncStatusIndicator from './SyncStatusIndicator';
 
@@ -212,7 +213,7 @@ export default function MusicPlayer() {
             analyser.connect(audioCtx.destination);
           } catch (e) {
             // MediaElementSource already exists (hot reload) - analyser still works
-            console.log('Audio source already connected');
+            logger.log('Audio source already connected');
           }
 
           analyserRef.current = analyser;

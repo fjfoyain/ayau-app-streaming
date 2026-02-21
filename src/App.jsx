@@ -16,6 +16,7 @@ import AnalyticsDashboard from "./components/admin/AnalyticsDashboard";
 import ProtectedAdminRoute from "./components/admin/ProtectedAdminRoute";
 import { PlayerProvider } from "./context/PlayerContext";
 import { SyncPlaybackProvider } from "./context/SyncPlaybackContext";
+import ErrorBoundary from "./components/ErrorBoundary";
 
 export default function App() {
   const [session, setSession] = useState(null);
@@ -41,6 +42,7 @@ export default function App() {
   }
 
   return (
+    <ErrorBoundary>
     <Router>
       <Routes>
         {/* Public routes (no authentication required) */}
@@ -81,5 +83,6 @@ export default function App() {
         )}
       </Routes>
     </Router>
+    </ErrorBoundary>
   );
 }

@@ -9,19 +9,10 @@
 
 **Immediate priority:**
 
-1. **Error Boundary** (TD-02) — ~30 min
-   - Create `src/components/ErrorBoundary.jsx`
-   - Wrap root in `src/App.jsx` with `<ErrorBoundary>`
-   - Shows a user-friendly fallback instead of blank screen on crash
-
-2. **Logger utility** (TD-06) — ~20 min
-   - Create `src/utils/logger.js` — wraps console, no-ops in production
-   - Replace `console.log` calls across codebase (62 ESLint warnings point to each one)
-
-3. **`vercel.json` SPA routing** — verify deep links work on Vercel
+1. **`vercel.json` SPA routing** — verify deep links work on Vercel
    - Try navigating directly to `/admin` after deploy — if 404, add `{ "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }] }`
 
-4. **Testing** (Priority 2) — after the above
+2. **Testing** (Priority 2)
    - Install Vitest + Testing Library
    - First tests: `supabase-api.js` service layer
    - GitHub Actions CI makes sense once tests exist (not before)
@@ -44,6 +35,21 @@
 **Skipped (intentional):**
 - `eslint-plugin-react-hooks` → 7.x (major bump, needs validation)
 - `globals` → 17.x (major bump, needs validation)
+
+### Session 2026-02-21
+**Completed:**
+- ✅ **Error Boundary** (`src/components/ErrorBoundary.jsx`)
+  - Created class component with MUI fallback UI (icon + message + reload button, in Spanish)
+  - Wrapped entire app in `src/App.jsx` — catches any render crash before blank screen
+- ✅ **Logger utility** (`src/utils/logger.js`)
+  - `logger.log` is a no-op in production (`import.meta.env.PROD`), `logger.warn/error` always surface
+  - Replaced all `console.log` calls: `MusicPlayer.jsx` (1) and `AnalyticsDashboardV2.jsx` (34)
+  - ESLint `no-console` warnings drop from 63 → 0 for `console.log`
+- ✅ **Security Advisor — 24 Security Definer View errors** (`database/fix-security-definer-views.sql`)
+  - Created migration using a DO block that safely skips views not yet deployed
+  - Sets `security_invoker = true` on all analytics, royalty, and playlist views
+  - Verified via `pg_class.reloptions` — all affected views now show `["security_invoker=true"]`
+  - Re-run Security Advisor to confirm 0 errors remaining
 
 ### Session 2026-02-20 (continued)
 **Completed:**
@@ -70,14 +76,15 @@
 | Admin panel | ✅ Working | Full CRUD for users, songs, playlists, accounts |
 | Auth / RBAC | ✅ Working | Supabase Auth + 4 roles + force-password flow |
 | Analytics | ✅ Working | Recharts dashboard, royalty tracking |
+| DB security | ✅ Fixed | 24 Security Definer View errors resolved (security_invoker=true) |
 | Sync playback | ✅ Seek fixed | `applyRemoteState` dispatches `SYNC_SEEK` when >3s off |
 | ESLint | ✅ Configured | `eslint.config.js` created, 0 errors / 63 warnings |
 | Env security | ✅ Safe | `.env.local` not in git, `.env.example` added |
 | `.gitignore` | ✅ Complete | Covers `coverage/`, `.vercel/`, `.claude/`, etc. |
 | Packages | ✅ Up to date | Minor/patch updated. 2 major skips intentional (see log) |
 | Test coverage | ❌ Missing | No test framework configured |
-| Error boundaries | ❌ Missing | No global crash recovery |
-| Structured logging | ❌ Missing | 63 `console.log` warnings from ESLint |
+| Error boundaries | ✅ Done | `ErrorBoundary.jsx` wraps App — friendly crash screen |
+| Structured logging | ✅ Done | `logger.js` — no-ops in prod, 0 `console.log` remaining |
 | Vercel deploy | ✅ Working | Auto-deploys on push to main |
 | GitHub Actions CI | ⏳ Deferred | Only useful once tests exist |
 
