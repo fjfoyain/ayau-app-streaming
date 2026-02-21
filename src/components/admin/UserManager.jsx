@@ -460,7 +460,7 @@ export default function UserManager() {
                   >
                     <PlaylistAddIcon />
                   </IconButton>
-                  {!user.email_confirmed_at && (
+                  {!(user.email_confirmed_at || user.email_verified_manually) && (
                     <IconButton
                       onClick={() => handleResendInvitation(user)}
                       disabled={resendingInvite === user.id}
