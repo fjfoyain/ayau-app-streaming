@@ -7,12 +7,13 @@
 
 ## Next Up (start here on any machine)
 
-**Immediate priority:**
+**Immediate priority (MVP focus):**
 
-1. **Testing** (Priority 2)
-   - Install Vitest + Testing Library
-   - First tests: `supabase-api.js` service layer
-   - GitHub Actions CI makes sense once tests exist (not before)
+1. **App features** — in active development, prioritize product over tooling
+
+**When ready to revisit infrastructure:**
+- GitHub Actions CI — deferred (Vercel already deploys, solo dev, `npm run test:run` locally is enough)
+- Expand test coverage — add tests as new service functions are added
 
 ---
 
@@ -35,6 +36,14 @@
 
 ### Session 2026-02-21
 **Completed:**
+- ✅ **Testing infrastructure** (Vitest + Testing Library)
+  - Installed: `vitest`, `@vitest/coverage-v8`, `jsdom`, `@testing-library/react`, `@testing-library/jest-dom`, `@testing-library/user-event`
+  - `vite.config.js` extended with `test:` block (jsdom env, setup file, coverage config)
+  - Added `npm run test`, `npm run test:run`, `npm run test:coverage` scripts
+  - `src/test/setup.js` — imports `@testing-library/jest-dom` matchers
+  - `src/test/supabase-api.test.js` — 22 tests covering `isAdmin`, `isManagerOrAdmin`, `getUserRole`, `getAllUsers`, `getSignedUrl`, `createPlaylist`, `recordPlay`; uses `vi.hoisted()` for mock functions
+  - `src/test/ErrorBoundary.test.jsx` — 4 tests: renders children, shows fallback, hides fallback, reload button
+  - **Result: 26/26 tests passing**
 - ✅ **Error Boundary** (`src/components/ErrorBoundary.jsx`)
   - Created class component with MUI fallback UI (icon + message + reload button, in Spanish)
   - Wrapped entire app in `src/App.jsx` — catches any render crash before blank screen
@@ -79,11 +88,11 @@
 | Env security | ✅ Safe | `.env.local` not in git, `.env.example` added |
 | `.gitignore` | ✅ Complete | Covers `coverage/`, `.vercel/`, `.claude/`, etc. |
 | Packages | ✅ Up to date | Minor/patch updated. 2 major skips intentional (see log) |
-| Test coverage | ❌ Missing | No test framework configured |
+| Test coverage | ✅ Started | Vitest configured, 26 tests passing (service layer + ErrorBoundary) |
 | Error boundaries | ✅ Done | `ErrorBoundary.jsx` wraps App — friendly crash screen |
 | Structured logging | ✅ Done | `logger.js` — no-ops in prod, 0 `console.log` remaining |
 | Vercel deploy | ✅ Working | Auto-deploys on push to main |
-| GitHub Actions CI | ⏳ Deferred | Only useful once tests exist |
+| GitHub Actions CI | ⏳ Deferred | Solo MVP dev — Vercel covers deploy, run tests locally |
 
 ---
 

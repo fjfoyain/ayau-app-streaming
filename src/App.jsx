@@ -13,7 +13,7 @@ import PlaylistManager from "./components/admin/PlaylistManager";
 import SongManager from "./components/admin/SongManager";
 import UserManager from "./components/admin/UserManager";
 import AnalyticsDashboard from "./components/admin/AnalyticsDashboard";
-import ProtectedAdminRoute from "./components/admin/ProtectedAdminRoute";
+import ProtectedAdminRoute, { AdminOnlyRoute } from "./components/admin/ProtectedAdminRoute";
 import { PlayerProvider } from "./context/PlayerContext";
 import { SyncPlaybackProvider } from "./context/SyncPlaybackContext";
 import ErrorBoundary from "./components/ErrorBoundary";
@@ -71,7 +71,7 @@ export default function App() {
               <Route path="venues" element={<VenueManager />} />
               <Route path="playlists" element={<PlaylistManager />} />
               <Route path="songs" element={<SongManager />} />
-              <Route path="users" element={<UserManager />} />
+              <Route path="users" element={<AdminOnlyRoute><UserManager /></AdminOnlyRoute>} />
               <Route path="analytics" element={<AnalyticsDashboard />} />
             </Route>
 

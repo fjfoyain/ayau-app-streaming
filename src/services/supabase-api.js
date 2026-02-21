@@ -1447,72 +1447,8 @@ export const isAccountOwner = async (clientId) => {
   return data?.owner_id === user.id
 }
 
-// ================================================
-// PASSWORD RESET FUNCTIONS
-// ================================================
-
-/**
- * Solicitar reset de contraseña (envía email)
- * @param {string} email - Email del usuario
- * @returns {Promise<Object>} Resultado de la solicitud
- */
-export const requestPasswordReset = async (email) => {
-  try {
-    // Llamar a la función SQL
-    const { data, error } = await supabase
-      .rpc('request_password_reset', {
-        user_email: email
-      })
-
-    if (error) throw error
-    return data
-  } catch (error) {
-    console.error('Error requesting password reset:', error)
-    throw error
-  }
-}
-
-/**
- * Validar token de reset de contraseña
- * @param {string} token - Token del reset
- * @returns {Promise<boolean>} True si el token es válido
- */
-export const validateResetToken = async (token) => {
-  try {
-    const { data, error } = await supabase
-      .rpc('validate_reset_token', {
-        reset_token: token
-      })
-
-    if (error) throw error
-    return data !== null
-  } catch (error) {
-    console.error('Error validating reset token:', error)
-    return false
-  }
-}
-
-/**
- * Completar el reset de contraseña
- * @param {string} token - Token del reset
- * @param {string} newPassword - Nueva contraseña
- * @returns {Promise<Object>} Resultado del reset
- */
-export const completePasswordReset = async (token, newPassword) => {
-  try {
-    const { data, error } = await supabase
-      .rpc('complete_password_reset', {
-        reset_token: token,
-        new_password: newPassword
-      })
-
-    if (error) throw error
-    return data
-  } catch (error) {
-    console.error('Error completing password reset:', error)
-    throw error
-  }
-}
+// Password reset is handled via Supabase native auth flow in PasswordReset.jsx
+// (supabase.auth.resetPasswordForEmail + supabase.auth.updateUser)
 
 // ================================================
 // PLAYLIST ASSIGNMENTS

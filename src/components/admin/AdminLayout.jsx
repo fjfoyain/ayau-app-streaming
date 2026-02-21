@@ -59,11 +59,11 @@ export default function AdminLayout() {
     }
   };
 
-  // Filter menu items based on user role
-  // Mostrar todos los items si el rol aún no se ha cargado (evitar menú vacío)
+  // Filter menu items based on user role.
+  // Show empty list while loading to avoid flashing restricted items (e.g. "Usuarios" for managers).
   const menuItems = userRole
     ? allMenuItems.filter(item => !item.roles || item.roles.includes(userRole))
-    : allMenuItems; // Mostrar todos mientras carga
+    : [];
 
   const handleDrawerToggle = () => {
     setMobileOpen(!mobileOpen);
