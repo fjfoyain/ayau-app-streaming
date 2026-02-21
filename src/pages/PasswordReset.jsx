@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { useSearchParams, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
+import { supabase } from '../lib/supabase';
 import Box from '@mui/material/Box';
 import Container from '@mui/material/Container';
 import Typography from '@mui/material/Typography';
@@ -12,48 +13,38 @@ import Link from '@mui/material/Link';
 import Stepper from '@mui/material/Stepper';
 import Step from '@mui/material/Step';
 import StepLabel from '@mui/material/StepLabel';
-import { requestPasswordReset, completePasswordReset, validateResetToken } from '../services/supabase-api';
 
 export default function PasswordReset() {
-  const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const token = searchParams.get('token');
 
-  const [step, setStep] = useState(token ? 1 : 0); // 0: Email, 1: Reset Password
+  const [step, setStep] = useState(0); // 0: Email form, 1: New password form
   const [email, setEmail] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
-  const [validatingToken, setValidatingToken] = useState(token ? true : false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [passwordStrength, setPasswordStrength] = useState(0);
 
-  // Validar token si existe en URL
+  // Detect if the user arrived via a password-reset email link.
+  // Supabase puts the token in the URL hash (#access_token=...&type=recovery).
   useEffect(() => {
-    if (token) {
-      validateToken();
+    // Fast path: check the hash before Supabase SDK clears it
+    const hashParams = new URLSearchParams(window.location.hash.replace('#', ''));
+    if (hashParams.get('type') === 'recovery') {
+      setStep(1);
     }
-  }, [token]);
 
-  const validateToken = async () => {
-    try {
-      setValidatingToken(true);
-      const result = await validateResetToken(token);
-      if (!result) {
-        setError('Token inválido o expirado. Por favor, solicita un nuevo enlace de recuperación.');
-        setStep(0);
-      } else {
+    // Async path: Supabase fires PASSWORD_RECOVERY once the token is exchanged
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+      if (event === 'PASSWORD_RECOVERY') {
         setStep(1);
+        setError('');
+        setSuccess('');
       }
-    } catch (err) {
-      console.error('Error validating token:', err);
-      setError('Error validando token. Por favor, intenta nuevamente.');
-      setStep(0);
-    } finally {
-      setValidatingToken(false);
-    }
-  };
+    });
+    return () => subscription.unsubscribe();
+  }, []);
 
   const calculatePasswordStrength = (password) => {
     let strength = 0;
@@ -62,10 +53,11 @@ export default function PasswordReset() {
     if (/[a-z]/.test(password)) strength++;
     if (/[A-Z]/.test(password)) strength++;
     if (/[0-9]/.test(password)) strength++;
-    if (/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password)) strength++;
+    if (/[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?]/.test(password)) strength++;
     setPasswordStrength(strength);
   };
 
+  // Step 0: request the reset email via Supabase native flow
   const handleEmailSubmit = async (e) => {
     e.preventDefault();
     if (!email) {
@@ -78,37 +70,32 @@ export default function PasswordReset() {
     setSuccess('');
 
     try {
-      const result = await requestPasswordReset(email);
-      if (result.success) {
-        setSuccess('Te hemos enviado un enlace para restablecer tu contraseña. Revisa tu correo (incluyendo spam).');
-        setTimeout(() => {
-          navigate('/login');
-        }, 5000);
-      } else {
-        setSuccess('Si el correo existe en el sistema, recibirás un enlace para restablecer la contraseña.');
-      }
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/password-reset`,
+      });
+      if (error) throw error;
+      // Generic message to avoid user enumeration
+      setSuccess('Si el correo existe en el sistema, recibirás un enlace para restablecer la contraseña. Revisa también la carpeta de spam.');
       setEmail('');
-    } catch (err) {
-      console.error('Error requesting password reset:', err);
+    } catch {
       setSuccess('Si el correo existe en el sistema, recibirás un enlace para restablecer la contraseña.');
     } finally {
       setLoading(false);
     }
   };
 
+  // Step 1: set the new password (Supabase recovery session is already active)
   const handleResetPassword = async (e) => {
     e.preventDefault();
-    
+
     if (!newPassword || !confirmPassword) {
       setError('Por favor, ingresa la nueva contraseña en ambos campos');
       return;
     }
-
     if (newPassword !== confirmPassword) {
       setError('Las contraseñas no coinciden');
       return;
     }
-
     if (newPassword.length < 8) {
       setError('La contraseña debe tener al menos 8 caracteres');
       return;
@@ -119,35 +106,19 @@ export default function PasswordReset() {
     setSuccess('');
 
     try {
-      const result = await completePasswordReset(token, newPassword);
-      if (result.success) {
-        setSuccess('Tu contraseña ha sido restablecida exitosamente. Redirigiendo a login...');
-        setTimeout(() => {
-          navigate('/login');
-        }, 2000);
-      } else {
-        setError(result.message || 'Error al restablecer la contraseña');
-      }
+      const { error } = await supabase.auth.updateUser({ password: newPassword });
+      if (error) throw error;
+
+      setSuccess('Tu contraseña ha sido restablecida exitosamente. Redirigiendo...');
+      // Sign out so the user logs in fresh with the new password
+      await supabase.auth.signOut();
+      setTimeout(() => navigate('/'), 2000);
     } catch (err) {
-      console.error('Error resetting password:', err);
-      setError('Error al restablecer la contraseña. Por favor, intenta de nuevo.');
+      setError(err.message || 'Error al restablecer la contraseña. Por favor, intenta de nuevo.');
     } finally {
       setLoading(false);
     }
   };
-
-  if (validatingToken) {
-    return (
-      <Container maxWidth="sm">
-        <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh' }}>
-          <Box sx={{ textAlign: 'center' }}>
-            <CircularProgress />
-            <Typography sx={{ mt: 2 }}>Validando enlace de recuperación...</Typography>
-          </Box>
-        </Box>
-      </Container>
-    );
-  }
 
   return (
     <Container maxWidth="sm">
@@ -178,7 +149,7 @@ export default function PasswordReset() {
             </Alert>
           )}
 
-          {/* Step 1: Email */}
+          {/* Step 0: Email */}
           {step === 0 && (
             <Box component="form" onSubmit={handleEmailSubmit} sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
               <Typography variant="body2" color="textSecondary" sx={{ mb: 1 }}>
@@ -208,7 +179,7 @@ export default function PasswordReset() {
 
               <Box sx={{ textAlign: 'center', mt: 2 }}>
                 <Link
-                  href="/login"
+                  href="/"
                   sx={{ cursor: 'pointer', textDecoration: 'none', color: '#F4D03F' }}
                 >
                   Volver a Login
@@ -217,7 +188,7 @@ export default function PasswordReset() {
             </Box>
           )}
 
-          {/* Step 1: Reset Password */}
+          {/* Step 1: New Password */}
           {step === 1 && (
             <Box component="form" onSubmit={handleResetPassword} sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
               <Typography variant="body2" color="textSecondary" sx={{ mb: 1 }}>
@@ -240,7 +211,7 @@ export default function PasswordReset() {
               {newPassword && (
                 <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
                   <Typography variant="caption" sx={{ minWidth: 100 }}>
-                    Fortaleza: 
+                    Fortaleza:
                   </Typography>
                   <Box sx={{ display: 'flex', gap: 0.5, flex: 1 }}>
                     {[...Array(6)].map((_, i) => (
@@ -250,7 +221,7 @@ export default function PasswordReset() {
                           flex: 1,
                           height: 6,
                           borderRadius: 1,
-                          backgroundColor: i < passwordStrength ? '#4CAF50' : '#e0e0e0'
+                          backgroundColor: i < passwordStrength ? '#4CAF50' : '#e0e0e0',
                         }}
                       />
                     ))}
@@ -284,7 +255,7 @@ export default function PasswordReset() {
 
               <Box sx={{ textAlign: 'center', mt: 2 }}>
                 <Link
-                  href="/login"
+                  href="/"
                   sx={{ cursor: 'pointer', textDecoration: 'none', color: '#F4D03F' }}
                 >
                   Volver a Login

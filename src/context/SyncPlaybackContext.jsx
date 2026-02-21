@@ -258,8 +258,15 @@ export function SyncPlaybackProvider({ children }) {
       playerDispatch({ type: 'PAUSE_SONG' });
     }
 
-    // TODO: Apply seek position if significantly different
-  }, [playerState.currentSong?.id, playerState.isPlaying, playerDispatch]);
+    // Apply seek position if significantly different (>3 seconds off)
+    // playback_position is stored in seconds in the DB
+    if (session.playback_position !== null && session.playback_position !== undefined) {
+      const localPosition = playerState.audio?.currentTime ?? 0;
+      if (Math.abs(session.playback_position - localPosition) > 3) {
+        playerDispatch({ type: 'SYNC_SEEK', payload: session.playback_position });
+      }
+    }
+  }, [playerState.currentSong?.id, playerState.isPlaying, playerState.audio, playerDispatch]);
 
   // ================================================
   // Broadcast local changes (when controller)

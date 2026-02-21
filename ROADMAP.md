@@ -7,7 +7,7 @@
 
 ## Next Up (start here on any machine)
 
-**Immediate priority — Priority 1 remaining items:**
+**Immediate priority:**
 
 1. **Error Boundary** (TD-02) — ~30 min
    - Create `src/components/ErrorBoundary.jsx`
@@ -16,15 +16,15 @@
 
 2. **Logger utility** (TD-06) — ~20 min
    - Create `src/utils/logger.js` — wraps console, no-ops in production
-   - Replace `console.log` calls across codebase (63 ESLint warnings point to each one)
+   - Replace `console.log` calls across codebase (62 ESLint warnings point to each one)
 
-3. **Testing** (Priority 2) — after the two above
+3. **`vercel.json` SPA routing** — verify deep links work on Vercel
+   - Try navigating directly to `/admin` after deploy — if 404, add `{ "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }] }`
+
+4. **Testing** (Priority 2) — after the above
    - Install Vitest + Testing Library
    - First tests: `supabase-api.js` service layer
    - GitHub Actions CI makes sense once tests exist (not before)
-
-4. **`vercel.json` SPA routing** — check if deep links work on Vercel
-   - Try navigating directly to `/admin` after deploy — if Vercel returns 404, add the rewrite rule
 
 ---
 
@@ -45,6 +45,21 @@
 - `eslint-plugin-react-hooks` → 7.x (major bump, needs validation)
 - `globals` → 17.x (major bump, needs validation)
 
+### Session 2026-02-20 (continued)
+**Completed:**
+- ✅ **Bug fix — Password Reset** (`src/pages/PasswordReset.jsx`)
+  - Root cause: was reading `?token=` from query string; Supabase sends token in URL **hash** (`#access_token=...&type=recovery`)
+  - Replaced entire custom SQL token flow (`request_password_reset`, `validate_reset_token`, `complete_password_reset` RPCs) with Supabase native auth:
+    - `supabase.auth.resetPasswordForEmail(email, { redirectTo })` for sending the email
+    - `supabase.auth.onAuthStateChange` watching for `PASSWORD_RECOVERY` to detect the recovery session
+    - Hash param fast-path check (`window.location.hash`) in case event fires before component mounts
+    - `supabase.auth.updateUser({ password })` to set the new password
+    - `supabase.auth.signOut()` after success so user logs in fresh
+- ✅ **Sync Playback seek position** (`src/context/SyncPlaybackContext.jsx:261`)
+  - Completed the TODO — `applyRemoteState` now dispatches `SYNC_SEEK` when remote `playback_position` differs from local by >3 seconds
+  - Uses existing `SYNC_SEEK` action already wired in `PlayerContext.jsx`
+  - `playback_position` column (seconds) already exists in `playback_sessions` table
+
 ---
 
 ## Current State Snapshot
@@ -55,7 +70,7 @@
 | Admin panel | ✅ Working | Full CRUD for users, songs, playlists, accounts |
 | Auth / RBAC | ✅ Working | Supabase Auth + 4 roles + force-password flow |
 | Analytics | ✅ Working | Recharts dashboard, royalty tracking |
-| Sync playback | ⚠️ Incomplete | TODO in `SyncPlaybackContext.jsx` (seek position) |
+| Sync playback | ✅ Seek fixed | `applyRemoteState` dispatches `SYNC_SEEK` when >3s off |
 | ESLint | ✅ Configured | `eslint.config.js` created, 0 errors / 63 warnings |
 | Env security | ✅ Safe | `.env.local` not in git, `.env.example` added |
 | `.gitignore` | ✅ Complete | Covers `coverage/`, `.vercel/`, `.claude/`, etc. |
@@ -93,9 +108,9 @@
   // src/App.jsx — wrap router with <ErrorBoundary>
   ```
 
-### 1.3 Complete Sync Playback ⚠️ TODO
-- **Problem:** TODO in `src/context/SyncPlaybackContext.jsx` — seek position not synced on broadcast.
-- **Action:** Implement seek-position sync via Supabase Realtime channel.
+### 1.3 Complete Sync Playback ✅ DONE
+- Seek position now synced: `applyRemoteState` dispatches `SYNC_SEEK` when remote `playback_position` differs from local by >3 seconds.
+- `playback_position` (seconds) already existed in `playback_sessions` table; `SYNC_SEEK` action already existed in `PlayerContext.jsx`.
 
 ---
 
@@ -257,7 +272,7 @@ No tests exist. Without them, every change is a potential regression.
 | TD-01 | Security | `.env.local` in git | Critical | ✅ Resolved |
 | TD-02 | Reliability | No error boundaries | High | ❌ Open |
 | TD-03 | Quality | No test coverage | High | ❌ Open |
-| TD-04 | Completeness | Sync seek not implemented | Medium | ❌ Open |
+| TD-04 | Completeness | Sync seek not implemented | Medium | ✅ Resolved |
 | TD-05 | Maintainability | 3 components >1000 LOC | Medium | ❌ Open |
 | TD-06 | Observability | 63 console.log in production code | Medium | ❌ Open |
 | TD-07 | Config | ESLint config file missing | Low | ✅ Resolved |
@@ -265,6 +280,7 @@ No tests exist. Without them, every change is a potential regression.
 | TD-09 | Database | 59 migration files, no canonical schema | Low | ❌ Open |
 | TD-10 | Dependencies | `react-hooks` + `globals` major versions behind | Low | ⚠️ Deferred |
 | TD-11 | Bug | `UserManager.jsx` parse error (dangling JSX) | Medium | ✅ Resolved |
+| TD-12 | Bug | Password reset link broken (wrong token location) | High | ✅ Resolved |
 
 ---
 
