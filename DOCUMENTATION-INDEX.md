@@ -49,6 +49,7 @@
 | Documento | Descripcion |
 |-----------|-------------|
 | [README.md](README.md) | Introduccion al proyecto, setup rapido |
+| [ROADMAP.md](ROADMAP.md) | Estado actual, deuda tecnica y plan de mejoras futuras |
 | [EXECUTIVE-SUMMARY.md](EXECUTIVE-SUMMARY.md) | Resumen ejecutivo para stakeholders |
 | [TRACKING-REPRODUCCION.md](TRACKING-REPRODUCCION.md) | Sistema de tracking de reproducciones para regalias |
 

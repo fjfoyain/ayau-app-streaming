@@ -16,6 +16,7 @@ dist-ssr
 .vscode/*
 !.vscode/extensions.json
 .idea
+.claude/
 .DS_Store
 *.suo
 *.ntvs*
@@ -23,7 +24,17 @@ dist-ssr
 *.sln
 *.sw?
 
-# Environment variables
+# Environment variables (keep .env.example committed as a template)
 .env
 .env.local
+.env.*.local
 .env.production
+
+# Test coverage output
+coverage/
+
+# Vercel CLI artifacts
+.vercel/
+
+# TypeScript build info (for future TS migration)
+*.tsbuildinfo

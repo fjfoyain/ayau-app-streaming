@@ -1212,9 +1212,6 @@ export default function UserManager() {
                   backgroundColor: '#FF980044',
                 },
               }}
-            />,
-                borderRadius: '8px',
-              }}
             />
             <Paper
               sx={{

@@ -477,4 +477,4 @@ Si encuentras problemas:
 
 ---
 
-**Última Actualización:** Diciembre 2024
+**Última Actualización:** Febrero 2026

@@ -72,7 +72,11 @@ npm install
 
 ### 2. Configurar variables de entorno
 
-Crea un archivo `.env.local` con:
+Copia `.env.example` a `.env.local` y completa los valores:
+
+```bash
+cp .env.example .env.local
+```
 
 ```env
 VITE_SUPABASE_URL=tu_supabase_url
@@ -238,23 +242,13 @@ Los administradores pueden:
 
 ## 📋 Roadmap
 
-- [x] Fase 1: Setup de Supabase
-- [x] Fase 2: Configuración local
-- [x] Fase 3: Admin Panel
-  - [x] Gestión de playlists
-  - [x] Gestión de canciones
-  - [x] Carga bulk de archivos
-  - [x] Gestión de usuarios
-  - [x] Sistema de roles (admin/manager)
-  - [x] Analytics básico
-- [x] Fase 4: Frontend (Auth + Tracking)
-- [x] Fase 5: Testing completo
-- [x] Fase 6: Deploy a Vercel
-- [x] Fase 7: Mejoras futuras
-  - [ ] Reportes avanzados de regalías
-  - [ ] Export a CSV de analytics
-  - [x] Sistema de clientes y locales
-  - [ ] Broadcasting centralizado
+El plan detallado de mejoras, deuda técnica y próximos pasos está en **[ROADMAP.md](ROADMAP.md)**.
+
+Resumen de estado:
+
+- [x] Fase 1–4: Setup, Admin Panel, Auth, Tracking
+- [ ] Fase 5: Testing (Vitest + Playwright)
+- [ ] Fase 6: Refactor de componentes grandes, logging estructurado
 
 ## 📚 Documentación Adicional
 
@@ -291,6 +285,7 @@ Los administradores pueden:
 npm run dev      # Ejecutar en desarrollo
 npm run build    # Build para producción
 npm run preview  # Preview del build
+npm run lint     # Revisar código con ESLint
 ```
 
 ## 💰 Costos Estimados

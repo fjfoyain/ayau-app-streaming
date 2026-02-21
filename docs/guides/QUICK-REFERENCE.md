@@ -276,7 +276,7 @@ SELECT email, exclude_reason FROM user_profiles WHERE exclude_from_analytics = t
 
 ---
 
-**Documento Generado:** Diciembre 2024  
+**Documento Generado:** Diciembre 2024 | **Última Revisión:** Febrero 2026  
 **Completado en:** ~3 horas  
 **Listo para:** Deploy cuando se ejecuten los pasos
 
