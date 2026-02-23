@@ -18,6 +18,7 @@ export default function PasswordReset() {
   const navigate = useNavigate();
 
   const [step, setStep] = useState(0); // 0: Email form, 1: New password form
+  const [isNewUser, setIsNewUser] = useState(false); // true when arriving from an invite link
   const [email, setEmail] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -39,8 +40,12 @@ export default function PasswordReset() {
       return;
     }
 
+    // cameFromLink: URL had a hash with tokens or Supabase already cleared it to '#'
+    const cameFromLink = window.location.hash === '#' || window.location.hash.length > 1;
+
     // Fast path: jump to password form if the hash still has the token type
     if (type === 'recovery' || type === 'invite') {
+      setIsNewUser(type === 'invite');
       setStep(1);
     }
 
@@ -48,15 +53,15 @@ export default function PasswordReset() {
     // leaving just '#'. If that happened, check for an active session as fallback.
     if (window.location.hash === '#') {
       supabase.auth.getSession().then(({ data: { session } }) => {
-        if (session) setStep(1);
+        if (session) {
+          setIsNewUser(!session.user?.email_confirmed_at);
+          setStep(1);
+        }
       });
     }
 
-    // cameFromLink: URL had a hash with tokens or Supabase already cleared it to '#'
-    const cameFromLink = window.location.hash === '#' || window.location.hash.length > 1;
-
     // Async path: Supabase fires PASSWORD_RECOVERY (reset) or SIGNED_IN (invite/recovery)
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === 'PASSWORD_RECOVERY') {
         setStep(1);
         setError('');
@@ -64,6 +69,7 @@ export default function PasswordReset() {
       }
       // Invite links fire SIGNED_IN; unconfirmed users on recovery links also fire SIGNED_IN
       if (event === 'SIGNED_IN' && cameFromLink) {
+        setIsNewUser(!session?.user?.email_confirmed_at);
         setStep(1);
         setError('');
         setSuccess('');
@@ -151,7 +157,7 @@ export default function PasswordReset() {
       <Box sx={{ py: 4 }}>
         <Paper elevation={3} sx={{ p: 4 }}>
           <Typography variant="h4" component="h1" sx={{ mb: 3, textAlign: 'center', fontWeight: 'bold' }}>
-            Recuperar Contraseña
+            {isNewUser ? 'Establecer Contraseña' : 'Recuperar Contraseña'}
           </Typography>
 
           <Stepper activeStep={step} sx={{ mb: 4 }}>
@@ -218,7 +224,9 @@ export default function PasswordReset() {
           {step === 1 && (
             <Box component="form" onSubmit={handleResetPassword} sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
               <Typography variant="body2" color="textSecondary" sx={{ mb: 1 }}>
-                Ingresa tu nueva contraseña. Debe tener al menos 8 caracteres.
+                {isNewUser
+                  ? 'Bienvenido a Ayau. Crea una contraseña para acceder a tu cuenta.'
+                  : 'Ingresa tu nueva contraseña. Debe tener al menos 8 caracteres.'}
               </Typography>
 
               <TextField
