@@ -17,8 +17,23 @@ import StepLabel from '@mui/material/StepLabel';
 export default function PasswordReset() {
   const navigate = useNavigate();
 
-  const [step, setStep] = useState(0); // 0: Email form, 1: New password form
-  const [isNewUser, setIsNewUser] = useState(false); // true when arriving from an invite link
+  // Read URL params via lazy initializer — runs synchronously during first render,
+  // BEFORE Supabase's async initialize() can clear the hash. Most reliable detection
+  // for invite/recovery links regardless of flow type (implicit or PKCE).
+  const [step, setStep] = useState(() => {
+    const h = new URLSearchParams(window.location.hash.replace('#', ''));
+    const s = new URLSearchParams(window.location.search);
+    const type = h.get('type');                   // implicit: 'recovery' | 'invite'
+    const code = s.get('code');                   // PKCE flow
+    const errorCode = h.get('error_code') || s.get('error_code');
+    if (errorCode === 'otp_expired') return 0;
+    if (type === 'recovery' || type === 'invite' || code) return 1;
+    return 0;
+  });
+
+  const [isNewUser, setIsNewUser] = useState(() =>
+    new URLSearchParams(window.location.hash.replace('#', '')).get('type') === 'invite'
+  );
   const [email, setEmail] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -27,27 +42,20 @@ export default function PasswordReset() {
   const [success, setSuccess] = useState('');
   const [passwordStrength, setPasswordStrength] = useState(0);
 
-  // Detect if the user arrived via a password-reset or invite email link.
-  // Supabase puts the token type in the URL hash (#access_token=...&type=recovery|invite).
   useEffect(() => {
     const hashParams = new URLSearchParams(window.location.hash.replace('#', ''));
-    const type = hashParams.get('type');
-    const hashError = hashParams.get('error_code');
+    const searchParams = new URLSearchParams(window.location.search);
+    const hashError = hashParams.get('error_code') || searchParams.get('error_code');
+    const urlError = hashParams.get('error') || searchParams.get('error');
 
-    // Handle expired or invalid link — show a clear message instead of a blank form
-    if (hashError === 'otp_expired' || hashParams.get('error') === 'access_denied') {
+    // Handle expired or invalid link
+    if (hashError === 'otp_expired' || urlError === 'access_denied') {
       setError('El enlace ha expirado o ya fue utilizado. Solicita al administrador que reenvíe la invitación, o usa "Olvidé mi contraseña" desde el login.');
       return;
     }
 
-    // Fast path: hash still has the token type (Supabase hasn't cleared it yet)
-    if (type === 'recovery' || type === 'invite') {
-      setIsNewUser(type === 'invite');
-      setStep(1);
-    }
-
-    // If there is already an active session when the page loads, go straight to
-    // the password form. This covers all timing variations of Supabase token exchange.
+    // Async fallback: getSession() resolves once Supabase finishes token exchange
+    // (covers PKCE code exchange and sessions already in storage).
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session) {
         setIsNewUser(!session.user?.email_confirmed_at);
@@ -55,7 +63,7 @@ export default function PasswordReset() {
       }
     });
 
-    // Also listen for auth events fired after this component mounts
+    // onAuthStateChange covers late-firing events (e.g. PKCE exchange completing after mount)
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (
         event === 'PASSWORD_RECOVERY' ||
