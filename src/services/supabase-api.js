@@ -1396,18 +1396,14 @@ export const getAllVenuesWithManager = async () => {
 }
 
 /**
- * Eliminar usuario (soft delete - desactivar)
+ * Eliminar usuario — borra de auth.users (y user_profiles por CASCADE) vía Edge Function.
  */
 export const deleteUser = async (userId) => {
-  const { data, error } = await supabase.rpc('delete_user_profile', {
-    p_user_id: userId
+  const { data, error } = await supabase.functions.invoke('invite-user', {
+    body: { action: 'delete', user_id: userId },
   })
-
-  if (error) {
-    console.error('Error deleting user:', error)
-    throw new Error(error.message || 'Error al eliminar usuario')
-  }
-
+  if (error) throw error
+  if (data?.error) throw new Error(data.error)
   return data
 }
 

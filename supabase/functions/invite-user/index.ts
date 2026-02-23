@@ -57,10 +57,43 @@ Deno.serve(async (req: Request) => {
       client_id,
       location_id,
       redirectTo,
+      user_id,
     } = await req.json()
 
-    if (!action || !email) {
-      throw new Error('Missing required fields: action, email')
+    if (!action) {
+      throw new Error('Missing required field: action')
+    }
+
+    if (action === 'delete') {
+      if (!user_id) throw new Error('Missing required field: user_id')
+
+      // Only admins can delete users
+      if (callerProfile.role !== 'admin') {
+        throw new Error('Forbidden: only admins can delete users')
+      }
+
+      // Prevent self-deletion
+      if (user_id === callerUser.id) {
+        throw new Error('No puedes eliminar tu propia cuenta')
+      }
+
+      // Null out non-cascade FK references before deleting
+      await supabaseAdmin.from('clients').update({ owner_id: null }).eq('owner_id', user_id)
+      await supabaseAdmin.from('locations').update({ manager_id: null }).eq('manager_id', user_id)
+      await supabaseAdmin.from('playback_sessions').update({ controlled_by: null }).eq('controlled_by', user_id)
+
+      // Delete auth user — cascades to user_profiles automatically (ON DELETE CASCADE)
+      const { error: deleteError } = await supabaseAdmin.auth.admin.deleteUser(user_id)
+      if (deleteError) throw deleteError
+
+      return new Response(JSON.stringify({ success: true }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 200,
+      })
+    }
+
+    if (!email) {
+      throw new Error('Missing required field: email')
     }
 
     const inviteRedirectTo = redirectTo || siteUrl || 'https://app.ayau.com'
