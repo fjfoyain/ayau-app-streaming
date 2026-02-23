@@ -39,9 +39,17 @@ export default function PasswordReset() {
       return;
     }
 
-    // Fast path: jump to password form if the hash already has the token type
+    // Fast path: jump to password form if the hash still has the token type
     if (type === 'recovery' || type === 'invite') {
       setStep(1);
+    }
+
+    // Supabase JS v2 exchanges the token on page load and clears the hash,
+    // leaving just '#'. If that happened, check for an active session as fallback.
+    if (window.location.hash === '#') {
+      supabase.auth.getSession().then(({ data: { session } }) => {
+        if (session) setStep(1);
+      });
     }
 
     // Async path: Supabase fires PASSWORD_RECOVERY (reset) or SIGNED_IN (invite)

@@ -117,12 +117,55 @@ Deno.serve(async (req: Request) => {
     }
 
     if (action === 'resend') {
-      // Resend the invitation — Supabase will resend if user exists and hasn't confirmed
-      const { error: resendError } = await supabaseAdmin.auth.admin.inviteUserByEmail(email, {
-        redirectTo: inviteRedirectTo,
+      const resendApiKey = Deno.env.get('RESEND_API_KEY') ?? ''
+      if (!resendApiKey) throw new Error('RESEND_API_KEY not configured')
+
+      // Generate a recovery link via Admin API (does NOT send an email)
+      const { data: linkData, error: linkError } = await supabaseAdmin.auth.admin.generateLink({
+        type: 'recovery',
+        email,
+        options: { redirectTo: inviteRedirectTo },
       })
 
-      if (resendError) throw resendError
+      if (linkError) throw linkError
+
+      const actionLink = linkData.properties?.action_link
+      if (!actionLink) throw new Error('Failed to generate invitation link')
+
+      // Send a fully custom invitation email via Resend
+      const emailRes = await fetch('https://api.resend.com/emails', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${resendApiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          from: 'Ayau <noreply@ayaumusic.com>',
+          to: [email],
+          subject: 'Configura tu contraseña en Ayau',
+          html: `
+            <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:32px 24px;">
+              <h2 style="color:#1a1a1a;margin-bottom:8px;">Bienvenido a Ayau</h2>
+              <p style="color:#444;line-height:1.6;">
+                Un administrador te ha invitado a la plataforma Ayau.<br/>
+                Haz clic en el botón para establecer tu contraseña y acceder a tu cuenta.
+              </p>
+              <a href="${actionLink}"
+                style="display:inline-block;margin-top:24px;padding:12px 28px;background:#F4D03F;color:#1a1a1a;font-weight:bold;text-decoration:none;border-radius:6px;">
+                Establecer mi contraseña
+              </a>
+              <p style="color:#888;font-size:12px;margin-top:32px;">
+                Este enlace expira en 24 horas. Si no esperabas este correo, puedes ignorarlo.
+              </p>
+            </div>
+          `,
+        }),
+      })
+
+      if (!emailRes.ok) {
+        const emailErr = await emailRes.json()
+        throw new Error(`Resend error: ${JSON.stringify(emailErr)}`)
+      }
 
       return new Response(JSON.stringify({ success: true }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
