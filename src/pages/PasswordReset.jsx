@@ -40,34 +40,28 @@ export default function PasswordReset() {
       return;
     }
 
-    // Capture the hash state NOW — Supabase may clear it before listeners fire
-    const initialHash = window.location.hash;
-    const cameFromLink = initialHash === '#' || initialHash.length > 1;
-
     // Fast path: hash still has the token type (Supabase hasn't cleared it yet)
     if (type === 'recovery' || type === 'invite') {
       setIsNewUser(type === 'invite');
       setStep(1);
     }
 
-    // Supabase JS v2 may process the token BEFORE this component mounts,
-    // clearing the hash to '#'. Subscribe first, then fall back to getSession().
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      // PASSWORD_RECOVERY fires if listener was registered before token exchange
-      if (event === 'PASSWORD_RECOVERY') {
-        setIsNewUser(!session?.user?.email_confirmed_at);
-        setStep(1);
-        setError('');
-        setSuccess('');
-      }
-      // INITIAL_SESSION fires on subscribe — catches the case where PASSWORD_RECOVERY
-      // already fired before this listener was registered
-      if (event === 'INITIAL_SESSION' && session && cameFromLink) {
+    // If there is already an active session when the page loads, go straight to
+    // the password form. This covers all timing variations of Supabase token exchange.
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session) {
         setIsNewUser(!session.user?.email_confirmed_at);
         setStep(1);
       }
-      // Invite/magic links fire SIGNED_IN
-      if (event === 'SIGNED_IN' && cameFromLink) {
+    });
+
+    // Also listen for auth events fired after this component mounts
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (
+        event === 'PASSWORD_RECOVERY' ||
+        event === 'SIGNED_IN' ||
+        (event === 'INITIAL_SESSION' && session)
+      ) {
         setIsNewUser(!session?.user?.email_confirmed_at);
         setStep(1);
         setError('');
@@ -75,15 +69,6 @@ export default function PasswordReset() {
       }
     });
 
-    // Belt-and-suspenders: if the listener somehow missed it, getSession covers us
-    if (cameFromLink) {
-      supabase.auth.getSession().then(({ data: { session } }) => {
-        if (session) {
-          setIsNewUser(!session.user?.email_confirmed_at);
-          setStep(1);
-        }
-      });
-    }
     return () => subscription.unsubscribe();
   }, []);
 
