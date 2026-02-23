@@ -52,15 +52,18 @@ export default function PasswordReset() {
       });
     }
 
-    // Async path: Supabase fires PASSWORD_RECOVERY (reset) or SIGNED_IN (invite)
+    // cameFromLink: URL had a hash with tokens or Supabase already cleared it to '#'
+    const cameFromLink = window.location.hash === '#' || window.location.hash.length > 1;
+
+    // Async path: Supabase fires PASSWORD_RECOVERY (reset) or SIGNED_IN (invite/recovery)
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
       if (event === 'PASSWORD_RECOVERY') {
         setStep(1);
         setError('');
         setSuccess('');
       }
-      // Invite links fire SIGNED_IN after the token is exchanged
-      if (event === 'SIGNED_IN' && type === 'invite') {
+      // Invite links fire SIGNED_IN; unconfirmed users on recovery links also fire SIGNED_IN
+      if (event === 'SIGNED_IN' && cameFromLink) {
         setStep(1);
         setError('');
         setSuccess('');
