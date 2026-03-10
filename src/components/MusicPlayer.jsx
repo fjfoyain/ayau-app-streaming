@@ -187,6 +187,20 @@ export default function MusicPlayer() {
     transitionedRef.current = false;
   }, [state.currentSong?.id]);
 
+  // Keyboard shortcut: spacebar toggles play/pause
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.code !== 'Space') return;
+      const tag = e.target.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || e.target.isContentEditable) return;
+      e.preventDefault();
+      if (!state.currentSong) return;
+      dispatch({ type: 'TOGGLE_PLAY_PAUSE' });
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [state.currentSong, dispatch]);
+
   const handleVolumeChange = (e) => {
     const newVolume = parseFloat(e.target.value);
     setVolume(newVolume);

@@ -10,6 +10,8 @@ import SettingsIcon from '@mui/icons-material/Settings';
 import MenuIcon from '@mui/icons-material/Menu';
 import CloseIcon from '@mui/icons-material/Close';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
+import QueueMusicIcon from '@mui/icons-material/QueueMusic';
+import MusicNoteIcon from '@mui/icons-material/MusicNote';
 import CircularProgress from '@mui/material/CircularProgress';
 import { usePlayer } from "../context/PlayerContext";
 import DJModePanel from "../components/DJModePanel";
@@ -33,6 +35,7 @@ export default function HomePage({ session }) {
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [userIsAdmin, setUserIsAdmin] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [queueOpen, setQueueOpen] = useState(false);
   const [loadingPlaylist, setLoadingPlaylist] = useState(false);
 
   useEffect(() => {
@@ -147,61 +150,72 @@ export default function HomePage({ session }) {
             MÚSICA, ON FIRE
           </span>
         </div>
-        <div className="relative">
-          <Button
-            onClick={() => setDropdownOpen(!dropdownOpen)}
-            sx={{
-              color: '#F4D03F',
-              border: '2px solid #F4D03F',
-              borderRadius: '50%',
-              minWidth: 'auto',
-              padding: '8px',
-              '&:hover': {
-                backgroundColor: '#F4D03F22',
+        <div className="flex items-center gap-2">
+          {state.currentPlaylist?.playlist && (
+            <IconButton
+              onClick={() => setQueueOpen(!queueOpen)}
+              title="Ver cola de reproducción"
+              sx={{
+                color: queueOpen ? '#F4D03F' : '#F4D03F66',
+                backgroundColor: queueOpen ? '#F4D03F22' : 'transparent',
+                '&:hover': { backgroundColor: '#F4D03F22' }
+              }}
+            >
+              <QueueMusicIcon />
+            </IconButton>
+          )}
+          <div className="relative">
+            <Button
+              onClick={() => setDropdownOpen(!dropdownOpen)}
+              sx={{
+                color: '#F4D03F',
                 border: '2px solid #F4D03F',
-              }
-            }}
-          >
-            <PersonIcon />
-          </Button>
-          {dropdownOpen && (
-            <div className="absolute right-0 mt-2 w-56 bg-zinc-900 border-2 border-ayau-gold rounded-lg shadow-xl py-2 z-50">
-              <div className="px-4 py-3 text-sm text-ayau-gold border-b border-ayau-gold/30">
-                {session.user.email}
-              </div>
-              {userIsAdmin && (
+                borderRadius: '50%',
+                minWidth: 'auto',
+                padding: '8px',
+                '&:hover': {
+                  backgroundColor: '#F4D03F22',
+                  border: '2px solid #F4D03F',
+                }
+              }}
+            >
+              <PersonIcon />
+            </Button>
+            {dropdownOpen && (
+              <div className="absolute right-0 mt-2 w-56 bg-zinc-900 border-2 border-ayau-gold rounded-lg shadow-xl py-2 z-50">
+                <div className="px-4 py-3 text-sm text-ayau-gold border-b border-ayau-gold/30">
+                  {session.user.email}
+                </div>
+                {userIsAdmin && (
+                  <Button
+                    onClick={handleGoToAdmin}
+                    startIcon={<SettingsIcon />}
+                    sx={{
+                      width: '100%',
+                      justifyContent: 'flex-start',
+                      color: '#F4D03F',
+                      padding: '12px 16px',
+                      '&:hover': { backgroundColor: '#F4D03F22' }
+                    }}
+                  >
+                    Panel de Admin
+                  </Button>
+                )}
                 <Button
-                  onClick={handleGoToAdmin}
-                  startIcon={<SettingsIcon />}
+                  onClick={handleLogout}
                   sx={{
                     width: '100%',
                     justifyContent: 'flex-start',
                     color: '#F4D03F',
                     padding: '12px 16px',
-                    '&:hover': {
-                      backgroundColor: '#F4D03F22',
-                    }
+                    '&:hover': { backgroundColor: '#F4D03F22' }
                   }}
                 >
-                  Panel de Admin
+                  Cerrar Sesión
                 </Button>
-              )}
-              <Button
-                onClick={handleLogout}
-                sx={{
-                  width: '100%',
-                  justifyContent: 'flex-start',
-                  color: '#F4D03F',
-                  padding: '12px 16px',
-                  '&:hover': {
-                    backgroundColor: '#F4D03F22',
-                  }
-                }}
-              >
-                Cerrar Sesión
-              </Button>
-            </div>
-          )}
+              </div>
+            )}
+          </div>
         </div>
       </header>
 
@@ -262,6 +276,81 @@ export default function HomePage({ session }) {
             )}
           </div>
         </div>
+
+        {/* Queue Panel - Right side, informative only */}
+        {(() => {
+          const { playlist, songIndex } = state.currentPlaylist || {};
+          if (!playlist) return null;
+          const upcoming = [
+            ...playlist.slice(songIndex + 1),
+            ...playlist.slice(0, songIndex),
+          ];
+          return (
+            <div
+              className={`fixed right-0 top-[73px] bottom-[200px] w-72 bg-black border-l-2 border-ayau-gold transition-transform duration-300 ease-in-out z-40 flex flex-col ${
+                queueOpen ? 'translate-x-0' : 'translate-x-full'
+              }`}
+            >
+              <div className="flex justify-between items-center p-4 border-b-2 border-ayau-gold flex-shrink-0">
+                <h2 className="text-lg font-bold text-ayau-gold uppercase tracking-wider">
+                  En cola
+                </h2>
+                <IconButton
+                  onClick={() => setQueueOpen(false)}
+                  sx={{ color: '#F4D03F', '&:hover': { backgroundColor: '#F4D03F22' } }}
+                >
+                  <CloseIcon fontSize="small" />
+                </IconButton>
+              </div>
+
+              <div className="overflow-y-auto flex-1 p-3 space-y-1">
+                {/* Current song */}
+                <p className="text-xs font-bold text-ayau-gold/50 uppercase tracking-widest px-2 pb-1">
+                  Reproduciendo
+                </p>
+                <div className="flex items-center gap-3 p-2 rounded-lg bg-ayau-gold/10 border border-ayau-gold/40">
+                  <div className="w-10 h-10 rounded-md overflow-hidden border border-ayau-gold/60 flex-shrink-0 bg-black flex items-center justify-center">
+                    {playlist[songIndex]?.coverImage
+                      ? <img src={playlist[songIndex].coverImage} alt="" className="w-full h-full object-cover" />
+                      : <MusicNoteIcon sx={{ color: '#F4D03F66', fontSize: '1.2rem' }} />
+                    }
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-bold text-ayau-gold truncate">{playlist[songIndex]?.title}</p>
+                    <p className="text-xs text-ayau-gold/60 truncate">{playlist[songIndex]?.performer}</p>
+                  </div>
+                </div>
+
+                {/* Upcoming songs */}
+                {upcoming.length > 0 && (
+                  <>
+                    <p className="text-xs font-bold text-ayau-gold/50 uppercase tracking-widest px-2 pt-3 pb-1">
+                      Siguientes
+                    </p>
+                    {upcoming.map((song, i) => (
+                      <div
+                        key={`${song.id}-${i}`}
+                        className="flex items-center gap-3 p-2 rounded-lg hover:bg-ayau-gold/5 transition-colors"
+                      >
+                        <span className="text-xs text-ayau-gold/30 w-5 text-right flex-shrink-0">{i + 1}</span>
+                        <div className="w-9 h-9 rounded-md overflow-hidden border border-ayau-gold/30 flex-shrink-0 bg-black flex items-center justify-center">
+                          {song.coverImage
+                            ? <img src={song.coverImage} alt="" className="w-full h-full object-cover" />
+                            : <MusicNoteIcon sx={{ color: '#F4D03F44', fontSize: '1rem' }} />
+                          }
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm text-ayau-gold/90 truncate">{song.title}</p>
+                          <p className="text-xs text-ayau-gold/50 truncate">{song.performer}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </>
+                )}
+              </div>
+            </div>
+          );
+        })()}
 
         {/* Central Content - Now Playing */}
         <div className="flex-1 flex items-center justify-center p-4 md:p-8 overflow-hidden">

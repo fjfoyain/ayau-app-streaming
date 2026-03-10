@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Outlet, NavLink, useNavigate } from 'react-router-dom';
+import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom';
 import Box from '@mui/material/Box';
 import Drawer from '@mui/material/Drawer';
 import AppBar from '@mui/material/AppBar';
@@ -8,6 +8,9 @@ import List from '@mui/material/List';
 import Typography from '@mui/material/Typography';
 import Divider from '@mui/material/Divider';
 import IconButton from '@mui/material/IconButton';
+import Breadcrumbs from '@mui/material/Breadcrumbs';
+import Link from '@mui/material/Link';
+import NavigateNextIcon from '@mui/icons-material/NavigateNext';
 import ListItem from '@mui/material/ListItem';
 import ListItemButton from '@mui/material/ListItemButton';
 import ListItemIcon from '@mui/material/ListItemIcon';
@@ -39,10 +42,21 @@ const allMenuItems = [
   { text: 'Analytics', icon: <BarChartIcon />, path: '/admin/analytics', roles: ['admin', 'manager'] },
 ];
 
+const PATH_LABELS = {
+  '/admin/accounts':  'Cuentas',
+  '/admin/venues':    'Locales',
+  '/admin/playlists': 'Playlists',
+  '/admin/songs':     'Canciones',
+  '/admin/users':     'Usuarios',
+  '/admin/analytics': 'Analytics',
+};
+
 export default function AdminLayout() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [userRole, setUserRole] = useState(null);
   const navigate = useNavigate();
+  const location = useLocation();
+  const currentLabel = PATH_LABELS[location.pathname] ?? null;
 
   useEffect(() => {
     loadUserRole();
@@ -250,6 +264,31 @@ export default function AdminLayout() {
           minHeight: '100vh',
         }}
       >
+        <Box sx={{ mb: 3, pb: 2, borderBottom: '1px solid #F4D03F22' }}>
+          <Breadcrumbs
+            separator={<NavigateNextIcon fontSize="small" sx={{ color: '#F4D03F44' }} />}
+            aria-label="breadcrumb"
+          >
+            {currentLabel ? (
+              <Link
+                underline="hover"
+                onClick={() => navigate('/admin')}
+                sx={{ color: '#F4D03F66', cursor: 'pointer', fontSize: '0.9rem', '&:hover': { color: '#F4D03F' } }}
+              >
+                Admin
+              </Link>
+            ) : (
+              <Typography sx={{ color: '#F4D03F', fontWeight: 'bold', fontSize: '0.9rem' }}>
+                Admin
+              </Typography>
+            )}
+            {currentLabel && (
+              <Typography sx={{ color: '#F4D03F', fontWeight: 'bold', fontSize: '0.9rem' }}>
+                {currentLabel}
+              </Typography>
+            )}
+          </Breadcrumbs>
+        </Box>
         <Outlet />
       </Box>
     </Box>
