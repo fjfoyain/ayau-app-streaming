@@ -99,10 +99,12 @@ export const PlayerProvider = ({ children }) => {
   const signedUrlCache = useRef(new Map());
   const saveTimer = useRef(null);
   const sessionSongIdRef = useRef(null); // Track current session song
+  const nextAudioPreloaderRef = useRef(null); // Hidden audio element for preloading next song data
 
   // When currentSong changes, resolve URL (signed if needed), set audio.src and play
   useEffect(() => {
     let mounted = true;
+    let preloadTimer = null;
     const audio = state.audio;
     if (!state.currentSong) return;
 
@@ -186,6 +188,38 @@ export const PlayerProvider = ({ children }) => {
 
         if (!mounted) return;
         dispatch({ type: 'SET_PLAYING', payload: true });
+
+        // Preload next song's audio data 10s into playback so it's buffered when needed
+        preloadTimer = setTimeout(async () => {
+          if (!mounted) return;
+          try {
+            const playlist = state.currentPlaylist;
+            if (!playlist?.playlist) return;
+            const idx = playlist.songIndex ?? playlist.playlist.findIndex(s => s.id === state.currentSong.id);
+            const nextSong = playlist.playlist[(idx + 1) % playlist.playlist.length];
+            if (!nextSong?.url || nextSong.id === state.currentSong.id) return;
+
+            // Use already-cached signed URL (prefetched above); skip if not ready yet
+            let nextUrl = nextSong.url;
+            if (!/^https?:\/\//i.test(nextUrl)) {
+              nextUrl = signedUrlCache.current.get(nextUrl);
+              if (!nextUrl) return;
+            }
+
+            if (!nextAudioPreloaderRef.current) {
+              nextAudioPreloaderRef.current = new Audio();
+              nextAudioPreloaderRef.current.volume = 0;
+            }
+            const preloader = nextAudioPreloaderRef.current;
+            if (preloader.src !== nextUrl) {
+              preloader.preload = 'auto';
+              preloader.src = nextUrl;
+              preloader.load();
+            }
+          } catch (_) {
+            // Preload failure is non-critical
+          }
+        }, 10000);
       } catch (error) {
         console.error('Error setting up audio for currentSong:', error);
       }
@@ -195,6 +229,7 @@ export const PlayerProvider = ({ children }) => {
 
     return () => {
       mounted = false;
+      if (preloadTimer) clearTimeout(preloadTimer);
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state.currentSong]);

@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useMemo } from "react";
 import Box from "@mui/material/Box";
 import Slider from "@mui/material/Slider";
 import Typography from "@mui/material/Typography";
+import CircularProgress from "@mui/material/CircularProgress";
 import { styled } from "@mui/material/styles";
 import PauseRounded from "@mui/icons-material/PauseRounded";
 import PlayArrowRounded from "@mui/icons-material/PlayArrowRounded";
@@ -24,11 +25,16 @@ export default function MusicPlayer() {
   const [volume, setVolume] = useState(audio.volume || 0.5);
   const [currentTime, setCurrentTime] = useState(audio.currentTime);
   const [duration, setDuration] = useState(audio.duration || 0);
+  const [isBuffering, setIsBuffering] = useState(false);
 
   // Tracking de reproducción
   const [playbackStartTime, setPlaybackStartTime] = useState(null);
   const [totalSecondsPlayed, setTotalSecondsPlayed] = useState(0);
   const hasRecordedPlay = useRef(false);
+
+  // Near-end transition: track whether we've already triggered the next song
+  const transitionedRef = useRef(false);
+  const handleNextRef = useRef(null);
 
   const canvasRef = useRef(null);
   const audioCtxRef = useRef(null);
@@ -42,7 +48,18 @@ export default function MusicPlayer() {
   const pendingCoverRef = useRef(null);
 
   useEffect(() => {
-    const updateTime = () => setCurrentTime(audio.currentTime);
+    const updateTime = () => {
+      setCurrentTime(audio.currentTime);
+      // Near-end: trigger next song 2 seconds before actual end for gapless playback
+      if (
+        !transitionedRef.current &&
+        audio.duration > 5 &&
+        (audio.duration - audio.currentTime) <= 2
+      ) {
+        transitionedRef.current = true;
+        handleNextRef.current?.();
+      }
+    };
     const updateDuration = () => setDuration(audio.duration || 0);
 
     const handlePlay = () => {
@@ -65,16 +82,23 @@ export default function MusicPlayer() {
     };
 
     const handleEnded = () => {
+      if (transitionedRef.current) return; // already transitioned 2s early
+      transitionedRef.current = true;
       handlePause();
       recordPlayHistory();
       handleNext();
     };
+
+    const handleWaiting = () => setIsBuffering(true);
+    const handleCanPlay = () => setIsBuffering(false);
 
     audio.addEventListener("timeupdate", updateTime);
     audio.addEventListener("loadedmetadata", updateDuration);
     audio.addEventListener("play", handlePlay);
     audio.addEventListener("pause", handlePause);
     audio.addEventListener("ended", handleEnded);
+    audio.addEventListener("waiting", handleWaiting);
+    audio.addEventListener("canplay", handleCanPlay);
 
     return () => {
       audio.removeEventListener("timeupdate", updateTime);
@@ -82,6 +106,8 @@ export default function MusicPlayer() {
       audio.removeEventListener("play", handlePlay);
       audio.removeEventListener("pause", handlePause);
       audio.removeEventListener("ended", handleEnded);
+      audio.removeEventListener("waiting", handleWaiting);
+      audio.removeEventListener("canplay", handleCanPlay);
     };
   }, [audio, playbackStartTime]);
 
@@ -153,6 +179,13 @@ export default function MusicPlayer() {
 
     dispatch({ type: "NEXT_SONG", payload: nextSong });
   };
+  // Keep ref always pointing to latest handleNext (avoids stale closure in timeupdate)
+  handleNextRef.current = handleNext;
+
+  // Reset transition flag whenever a new song starts
+  useEffect(() => {
+    transitionedRef.current = false;
+  }, [state.currentSong?.id]);
 
   const handleVolumeChange = (e) => {
     const newVolume = parseFloat(e.target.value);
@@ -402,19 +435,23 @@ export default function MusicPlayer() {
               <FastRewindRounded fontSize="large" />
             </IconButton>
             <IconButton
-              aria-label={!state?.isPlaying ? "play" : "pause"}
+              aria-label={isBuffering ? "loading" : !state?.isPlaying ? "play" : "pause"}
               onClick={handlePlayPause}
+              disabled={isBuffering}
               sx={{
                 color: '#F4D03F',
                 border: '2px solid #F4D03F',
                 padding: '12px',
+                position: 'relative',
                 '&:hover': {
                   backgroundColor: '#F4D03F22',
                   border: '2px solid #F4D03F',
                 }
               }}
             >
-              {!state?.isPlaying ? (
+              {isBuffering ? (
+                <CircularProgress size={32} sx={{ color: '#F4D03F' }} />
+              ) : !state?.isPlaying ? (
                 <PlayArrowRounded sx={{ fontSize: "2rem" }} />
               ) : (
                 <PauseRounded sx={{ fontSize: "2rem" }} />
