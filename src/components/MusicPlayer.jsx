@@ -18,6 +18,13 @@ import logger from '../utils/logger';
 import { recordPlay } from '../services/supabase-api';
 import SyncStatusIndicator from './SyncStatusIndicator';
 
+// Module-level singletons for the Web Audio API graph.
+// These MUST outlive React component re-mounts: if the component unmounts and remounts,
+// createMediaElementSource() would throw "already has a source" on the second mount,
+// leaving the new analyser permanently disconnected. Keeping them here prevents that.
+let _audioCtx = null;
+let _analyser = null;
+
 export default function MusicPlayer() {
   const { state, dispatch } = usePlayer();
   const audio = state.audio;
@@ -240,16 +247,17 @@ export default function MusicPlayer() {
 
     const setupVisualizer = () => {
       try {
-        // Create AudioContext once
-        if (!audioCtxRef.current) {
-          const AudioContext = window.AudioContext || window.webkitAudioContext;
-          audioCtxRef.current = new AudioContext();
+        // Use module-level singleton AudioContext (survives component remounts)
+        if (!_audioCtx) {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const AudioCtx = window.AudioContext || (/** @type {any} */ (window)).webkitAudioContext;
+          _audioCtx = new AudioCtx();
         }
+        audioCtxRef.current = _audioCtx;
+        const audioCtx = _audioCtx;
 
-        const audioCtx = audioCtxRef.current;
-
-        // Create and connect analyser only once per audio element
-        if (!analyserRef.current) {
+        // Use module-level singleton analyser + source (survives component remounts)
+        if (!_analyser) {
           const analyser = audioCtx.createAnalyser();
           analyser.fftSize = 256;
           analyser.smoothingTimeConstant = 0.8;
@@ -259,14 +267,15 @@ export default function MusicPlayer() {
             source.connect(analyser);
             analyser.connect(audioCtx.destination);
           } catch (e) {
-            // MediaElementSource already exists (hot reload) - analyser still works
-            logger.log('Audio source already connected');
+            // Should not happen with module-level singleton, but log if it does
+            logger.log('Audio source connection issue:', e.message);
           }
 
-          analyserRef.current = analyser;
+          _analyser = analyser;
         }
+        analyserRef.current = _analyser;
 
-        const analyser = analyserRef.current;
+        const analyser = _analyser;
         if (!analyser) {
           console.error('Analyser not available');
           return;
