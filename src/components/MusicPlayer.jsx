@@ -343,6 +343,18 @@ export default function MusicPlayer() {
       }
     };
 
+    // Resume AudioContext on ANY user interaction on the page.
+    // Music can start via the playlist sidebar (not the play button), which never
+    // calls audioCtx.resume(). Browsers require a user gesture to un-suspend the
+    // AudioContext, so we attach a catch-all listener here.
+    const resumeCtx = () => {
+      if (_audioCtx && _audioCtx.state === 'suspended') {
+        _audioCtx.resume().catch(() => {});
+      }
+    };
+    document.addEventListener('click', resumeCtx);
+    document.addEventListener('keydown', resumeCtx);
+
     setupVisualizer();
 
     return () => {
@@ -352,6 +364,8 @@ export default function MusicPlayer() {
       if (cleanupResize) {
         cleanupResize();
       }
+      document.removeEventListener('click', resumeCtx);
+      document.removeEventListener('keydown', resumeCtx);
     };
   }, [audio]);
 

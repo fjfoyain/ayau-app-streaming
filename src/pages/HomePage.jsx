@@ -359,7 +359,7 @@ export default function HomePage({ session }) {
               {/* Cover Art — width = min(85vw, available-height minus header+footer+info) */}
               <div
                 className="aspect-square flex-shrink-0 rounded-2xl md:rounded-3xl overflow-hidden border-2 md:border-4 border-ayau-gold shadow-2xl shadow-ayau-gold/20 bg-black mb-3 md:mb-4"
-                style={{ width: 'min(85vw, calc(100vh - 400px))' }}
+                style={{ width: 'min(85vw, calc(100vh - 460px))' }}
               >
                 <img
                   src={state.currentSong.coverImage || "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Crect width='300' height='300' fill='%23000'/%3E%3Ctext x='150' y='150' font-family='Arial' font-size='60' fill='%23F4D03F' text-anchor='middle' dominant-baseline='middle'%3E%E2%99%AB%3C/text%3E%3C/svg%3E"}
@@ -371,7 +371,7 @@ export default function HomePage({ session }) {
               {/* Song Info — same max-width as cover so text aligns */}
               <div
                 className="text-center px-2 flex-shrink-0"
-                style={{ width: 'min(85vw, calc(100vh - 400px))' }}
+                style={{ width: 'min(85vw, calc(100vh - 460px))' }}
               >
                 <h1 className="text-xl sm:text-2xl md:text-3xl lg:text-4xl font-bold text-ayau-gold mb-1 truncate">
                   {state.currentSong.title}
@@ -379,11 +379,19 @@ export default function HomePage({ session }) {
                 <p className="text-base sm:text-lg md:text-xl lg:text-2xl text-ayau-gold/80 truncate">
                   {state.currentSong.performer}
                 </p>
-                {state.currentSong.author && (
-                  <p className="text-xs sm:text-sm md:text-base text-ayau-gold/60 mt-1 truncate">
-                    {state.currentSong.author}
-                  </p>
-                )}
+                {state.currentSong.author && (() => {
+                  // author may be stored as a JSON array string e.g. ["Author 1","Author 2"]
+                  let display = state.currentSong.author;
+                  try {
+                    const parsed = JSON.parse(display);
+                    if (Array.isArray(parsed)) display = parsed.filter(Boolean).join(', ');
+                  } catch (_) { /* not JSON, use as-is */ }
+                  return display ? (
+                    <p className="text-xs sm:text-sm md:text-base text-ayau-gold/60 mt-1 truncate">
+                      {display}
+                    </p>
+                  ) : null;
+                })()}
               </div>
             </div>
           ) : (
