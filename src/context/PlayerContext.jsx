@@ -27,6 +27,23 @@ const playerReducer = (state, action) => {
       if (!state.currentSong) return state;
       return { ...state, currentSong: { ...state.currentSong, coverImage: action.payload } };
 
+    case "UPDATE_PLAYLIST_COVERS": {
+      // action.payload = [{ id, coverImage }, ...]
+      if (!state.currentPlaylist?.playlist) return state;
+      const coverMap = new Map(action.payload.map(u => [u.id, u.coverImage]));
+      const updatedPlaylist = state.currentPlaylist.playlist.map(s =>
+        coverMap.has(s.id) ? { ...s, coverImage: coverMap.get(s.id) } : s
+      );
+      const updatedCurrentSong = state.currentSong && coverMap.has(state.currentSong.id)
+        ? { ...state.currentSong, coverImage: coverMap.get(state.currentSong.id) }
+        : state.currentSong;
+      return {
+        ...state,
+        currentPlaylist: { ...state.currentPlaylist, playlist: updatedPlaylist },
+        currentSong: updatedCurrentSong,
+      };
+    }
+
     case "PLAY_SONG":
       // reducer keeps state minimal; actual audio control handled in PlayerProvider effects
       return { ...state, currentSong: action.payload, isPlaying: true, currentPlaylist: action.playlistInfo || state.currentPlaylist };
@@ -108,6 +125,7 @@ export const PlayerProvider = ({ children }) => {
   useEffect(() => {
     let mounted = true;
     let preloadTimer = null;
+    let coverBgTimer = null;
     const audio = state.audio;
     if (!state.currentSong) return;
 
@@ -207,6 +225,39 @@ export const PlayerProvider = ({ children }) => {
             // Preload failure is non-critical
           }
         }, 10000);
+
+        // Background: sign cover URLs for all playlist songs in batches of 5.
+        // Starts 1.5s after playback begins so it doesn't compete with audio buffering.
+        coverBgTimer = setTimeout(async () => {
+          const playlist = state.currentPlaylist?.playlist;
+          if (!playlist?.length || !mounted) return;
+
+          const batchSize = 5;
+          for (let i = 0; i < playlist.length; i += batchSize) {
+            if (!mounted) break;
+            const batch = playlist.slice(i, i + batchSize);
+            const updates = (await Promise.all(
+              batch.map(async (song) => {
+                if (!song.coverImage || /^https?:\/\//i.test(song.coverImage)) return null;
+                const cacheKey = `cover:${song.coverImage}`;
+                if (signedUrlCache.current.has(cacheKey)) {
+                  return { id: song.id, coverImage: signedUrlCache.current.get(cacheKey) };
+                }
+                try {
+                  const signed = await getSignedUrl(song.coverImage, 3600);
+                  signedUrlCache.current.set(cacheKey, signed);
+                  return { id: song.id, coverImage: signed };
+                } catch {
+                  return null;
+                }
+              })
+            )).filter(Boolean);
+
+            if (updates.length > 0 && mounted) {
+              dispatch({ type: 'UPDATE_PLAYLIST_COVERS', payload: updates });
+            }
+          }
+        }, 1500);
       } catch (error) {
         console.error('Error setting up audio for currentSong:', error);
       }
@@ -217,6 +268,7 @@ export const PlayerProvider = ({ children }) => {
     return () => {
       mounted = false;
       if (preloadTimer) clearTimeout(preloadTimer);
+      if (coverBgTimer) clearTimeout(coverBgTimer);
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state.currentSong]);
