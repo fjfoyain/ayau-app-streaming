@@ -270,8 +270,9 @@ export const PlayerProvider = ({ children }) => {
       if (preloadTimer) clearTimeout(preloadTimer);
       if (coverBgTimer) clearTimeout(coverBgTimer);
     };
+  // Depend on song ID only — not the full object — so cover/metadata updates don't re-trigger
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state.currentSong]);
+  }, [state.currentSong?.id]);
 
   // Auto-renew signed URL before expiry (1 hour TTL, refresh at 50 min)
   useEffect(() => {
