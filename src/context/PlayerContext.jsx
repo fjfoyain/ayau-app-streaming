@@ -10,6 +10,7 @@ const initialState = {
     const audio = new Audio();
     audio.volume = 0.5;
     audio.preload = 'none'; // Changed to 'none' to prevent 404 on empty src
+    audio.crossOrigin = 'anonymous'; // Required for Web Audio API (frequency visualizer)
     return audio;
   })(),
 };

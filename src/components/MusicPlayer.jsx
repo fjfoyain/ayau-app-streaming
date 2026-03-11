@@ -17,8 +17,13 @@ import { supabase } from '../lib/supabase';
 import { recordPlay } from '../services/supabase-api';
 import SyncStatusIndicator from './SyncStatusIndicator';
 
-// Pre-set bar heights (avoids Math.random() on each render)
+// Pre-set bar heights give each bar its own base height for visual variety
 const EQ_HEIGHTS = [40, 70, 55, 85, 60, 45, 75, 50, 90, 38, 72, 48, 65, 42, 80, 55, 44, 68, 50, 62];
+
+// Web Audio singletons — must outlive React component remounts
+let _audioCtx = null;
+let _analyser = null;
+let _dataArray = null;
 
 export default function MusicPlayer() {
   const { state, dispatch } = usePlayer();
@@ -37,6 +42,78 @@ export default function MusicPlayer() {
   // Near-end transition: track whether we've already triggered the next song
   const transitionedRef = useRef(false);
   const handleNextRef = useRef(null);
+
+  // EQ visualizer: direct DOM refs so RAF loop never causes React re-renders
+  const barRefs = useRef([]);
+  const isPlayingRef = useRef(state.isPlaying);
+  const displayValuesRef = useRef(new Float32Array(EQ_HEIGHTS.length).fill(0.08));
+
+  // Keep isPlayingRef current without stale closures inside RAF
+  useEffect(() => {
+    isPlayingRef.current = state.isPlaying;
+  }, [state.isPlaying]);
+
+  // Web Audio API setup + 60fps RAF visualizer
+  useEffect(() => {
+    // Create AudioContext singleton
+    if (!_audioCtx) {
+      // eslint-disable-next-line no-undef
+      const Ctx = window.AudioContext || window['webkitAudioContext'];
+      _audioCtx = new Ctx();
+    }
+    // Create analyser + connect source (only once — singletons survive remounts)
+    if (!_analyser) {
+      _analyser = _audioCtx.createAnalyser();
+      _analyser.fftSize = 256;
+      _analyser.smoothingTimeConstant = 0.85;
+      try {
+        const source = _audioCtx.createMediaElementSource(audio);
+        source.connect(_analyser);
+        _analyser.connect(_audioCtx.destination);
+      } catch (_) { /* already connected on remount */ }
+      _dataArray = new Uint8Array(_analyser.frequencyBinCount);
+    }
+
+    // Resume AudioContext on any user interaction (required by browser autoplay policy)
+    const resumeCtx = () => {
+      if (_audioCtx?.state === 'suspended') _audioCtx.resume().catch(() => {});
+    };
+    document.addEventListener('click', resumeCtx);
+    document.addEventListener('keydown', resumeCtx);
+
+    // RAF loop — writes directly to DOM, zero React re-renders
+    let rafId = null;
+    const barCount = EQ_HEIGHTS.length;
+
+    const tick = () => {
+      rafId = requestAnimationFrame(tick);
+      if (!_analyser || !_dataArray) return;
+
+      _analyser.getByteFrequencyData(_dataArray);
+      const playing = isPlayingRef.current;
+      const bufLen = _analyser.frequencyBinCount;
+      // Fast response when playing, slow graceful fall-off when paused
+      const smooth = playing ? 0.35 : 0.06;
+
+      for (let i = 0; i < barCount; i++) {
+        const el = barRefs.current[i];
+        if (!el) continue;
+        const idx = Math.floor((i * bufLen) / barCount);
+        const raw = _dataArray[idx] / 255;
+        const target = playing ? Math.max(0.08, raw) : 0.08;
+        displayValuesRef.current[i] += (target - displayValuesRef.current[i]) * smooth;
+        el.style.transform = `scaleY(${displayValuesRef.current[i].toFixed(3)})`;
+      }
+    };
+
+    tick();
+
+    return () => {
+      if (rafId) cancelAnimationFrame(rafId);
+      document.removeEventListener('click', resumeCtx);
+      document.removeEventListener('keydown', resumeCtx);
+    };
+  }, [audio]);
 
 
   // Default cover as SVG data URI (avoid 404 on missing file)
@@ -290,23 +367,20 @@ export default function MusicPlayer() {
         </Box>
 
         <Box className="flex flex-col items-center w-2/4">
-          {/* CSS EQ visualizer — works on all browsers without Web Audio API */}
+          {/* Real-time EQ visualizer — bars updated directly via RAF, no React re-renders */}
           <Box sx={{ width: '70%', mb: 1, height: 50, backgroundColor: '#1a1a1a', borderRadius: '4px', border: '1px solid #F4D03F33', display: 'flex', alignItems: 'flex-end', px: '6px', py: '4px', gap: '2px', overflow: 'hidden' }}>
-            <style>{`@keyframes ayau-eq{0%{transform:scaleY(.12)}100%{transform:scaleY(1)}}`}</style>
             {EQ_HEIGHTS.map((h, i) => (
               <div
                 key={i}
+                ref={el => { barRefs.current[i] = el; }}
                 style={{
                   flex: 1,
                   height: `${h}%`,
                   borderRadius: '2px',
                   background: 'linear-gradient(to top, #FFD700, #F4D03F88)',
                   transformOrigin: 'bottom',
-                  transform: state.isPlaying ? undefined : 'scaleY(0.12)',
-                  animation: state.isPlaying
-                    ? `ayau-eq ${0.35 + (i % 7) * 0.1}s ease-in-out ${(i % 5) * 0.07}s infinite alternate`
-                    : 'none',
-                  transition: state.isPlaying ? 'none' : 'transform 0.4s ease',
+                  transform: 'scaleY(0.08)',
+                  willChange: 'transform',
                 }}
               />
             ))}
