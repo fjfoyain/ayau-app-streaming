@@ -14,16 +14,11 @@ import IconButton from "@mui/material/IconButton";
 import { formatTime } from '../utils/musicPlayer';
 import { usePlayer } from "../context/PlayerContext";
 import { supabase } from '../lib/supabase';
-import logger from '../utils/logger';
 import { recordPlay } from '../services/supabase-api';
 import SyncStatusIndicator from './SyncStatusIndicator';
 
-// Module-level singletons for the Web Audio API graph.
-// These MUST outlive React component re-mounts: if the component unmounts and remounts,
-// createMediaElementSource() would throw "already has a source" on the second mount,
-// leaving the new analyser permanently disconnected. Keeping them here prevents that.
-let _audioCtx = null;
-let _analyser = null;
+// Pre-set bar heights (avoids Math.random() on each render)
+const EQ_HEIGHTS = [40, 70, 55, 85, 60, 45, 75, 50, 90, 38, 72, 48, 65, 42, 80, 55, 44, 68, 50, 62];
 
 export default function MusicPlayer() {
   const { state, dispatch } = usePlayer();
@@ -43,9 +38,6 @@ export default function MusicPlayer() {
   const transitionedRef = useRef(false);
   const handleNextRef = useRef(null);
 
-  const canvasRef = useRef(null);
-  const audioCtxRef = useRef(null);
-  const analyserRef = useRef(null);
 
   // Default cover as SVG data URI (avoid 404 on missing file)
   const defaultCover = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Crect width='300' height='300' fill='%23000'/%3E%3Ctext x='150' y='150' font-family='Arial' font-size='60' fill='%23F4D03F' text-anchor='middle' dominant-baseline='middle'%3E%E2%99%AB%3C/text%3E%3C/svg%3E";
@@ -72,12 +64,6 @@ export default function MusicPlayer() {
     const handlePlay = () => {
       setPlaybackStartTime(Date.now());
       hasRecordedPlay.current = false;
-      // Ensure AudioContext resumes on user gesture
-      try {
-        if (audioCtxRef.current && audioCtxRef.current.state === 'suspended') {
-          audioCtxRef.current.resume().catch(() => {});
-        }
-      } catch (e) {}
     };
 
     const handlePause = () => {
@@ -134,6 +120,14 @@ export default function MusicPlayer() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user || !state.currentSong?.id) return;
 
+      // Skip analytics for admin/manager — they test the system, not actual venue listeners
+      const { data: profile } = await supabase
+        .from('user_profiles')
+        .select('role')
+        .eq('id', user.id)
+        .single();
+      if (profile?.role === 'admin' || profile?.role === 'manager') return;
+
       await recordPlay(
         user.id,
         state.currentSong.id,
@@ -150,12 +144,6 @@ export default function MusicPlayer() {
 
   const handlePlayPause = () => {
     if (!state.currentSong) return;
-
-    // Resume AudioContext on user interaction (required for autoplay policies)
-    if (audioCtxRef.current && audioCtxRef.current.state === 'suspended') {
-      audioCtxRef.current.resume().catch(() => {});
-    }
-
     dispatch({ type: "TOGGLE_PLAY_PAUSE" });
   };
 
@@ -163,28 +151,14 @@ export default function MusicPlayer() {
     const { playlist, songIndex } = state.currentPlaylist || {};
     if (!playlist || songIndex === undefined || songIndex === -1) return;
     const prevIndex = (songIndex - 1 + playlist.length) % playlist.length;
-    const prevSong = playlist[prevIndex];
-
-    // Resume AudioContext on navigation
-    if (audioCtxRef.current && audioCtxRef.current.state === 'suspended') {
-      audioCtxRef.current.resume().catch(() => {});
-    }
-
-    dispatch({ type: "PREV_SONG", payload: prevSong });
+    dispatch({ type: "PREV_SONG", payload: playlist[prevIndex] });
   };
 
   const handleNext = () => {
     const { playlist, songIndex } = state.currentPlaylist || {};
     if (!playlist || songIndex === undefined || songIndex === -1) return;
     const nextIndex = (songIndex + 1) % playlist.length;
-    const nextSong = playlist[nextIndex];
-
-    // Resume AudioContext on navigation
-    if (audioCtxRef.current && audioCtxRef.current.state === 'suspended') {
-      audioCtxRef.current.resume().catch(() => {});
-    }
-
-    dispatch({ type: "NEXT_SONG", payload: nextSong });
+    dispatch({ type: "NEXT_SONG", payload: playlist[nextIndex] });
   };
   // Keep ref always pointing to latest handleNext (avoids stale closure in timeupdate)
   handleNextRef.current = handleNext;
@@ -237,137 +211,6 @@ export default function MusicPlayer() {
     };
   }, [coverImageSrc]);
 
-  // Audio visualizer - frequency bars
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas || !audio) return;
-
-    let animationId = null;
-    let cleanupResize = null;
-
-    const setupVisualizer = () => {
-      try {
-        // Use module-level singleton AudioContext (survives component remounts)
-        if (!_audioCtx) {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const AudioCtx = window.AudioContext || (/** @type {any} */ (window)).webkitAudioContext;
-          _audioCtx = new AudioCtx();
-        }
-        audioCtxRef.current = _audioCtx;
-        const audioCtx = _audioCtx;
-
-        // Use module-level singleton analyser + source (survives component remounts)
-        if (!_analyser) {
-          const analyser = audioCtx.createAnalyser();
-          analyser.fftSize = 256;
-          analyser.smoothingTimeConstant = 0.8;
-
-          try {
-            const source = audioCtx.createMediaElementSource(audio);
-            source.connect(analyser);
-            analyser.connect(audioCtx.destination);
-          } catch (e) {
-            // Should not happen with module-level singleton, but log if it does
-            logger.log('Audio source connection issue:', e.message);
-          }
-
-          _analyser = analyser;
-        }
-        analyserRef.current = _analyser;
-
-        const analyser = _analyser;
-        if (!analyser) {
-          console.error('Analyser not available');
-          return;
-        }
-
-        const bufferLength = analyser.frequencyBinCount;
-        const dataArray = new Uint8Array(bufferLength);
-
-        // Canvas setup
-        const ctx = canvas.getContext('2d');
-        if (!ctx) return;
-
-        const resize = () => {
-          const rect = canvas.parentElement?.getBoundingClientRect();
-          if (rect) {
-            canvas.width = rect.width;
-            canvas.height = 50;
-          }
-        };
-        resize();
-        window.addEventListener('resize', resize);
-        cleanupResize = () => window.removeEventListener('resize', resize);
-
-        // Animation loop
-        const draw = () => {
-          animationId = requestAnimationFrame(draw);
-
-          // Resume AudioContext if suspended
-          if (audioCtx.state === 'suspended') {
-            audioCtx.resume().catch(() => {});
-          }
-
-          // Get frequency data
-          analyser.getByteFrequencyData(dataArray);
-
-          // Clear canvas
-          ctx.fillStyle = '#1a1a1a';
-          ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-          // Draw frequency bars
-          const barCount = 32;
-          const barWidth = (canvas.width / barCount) * 0.8;
-          const gap = (canvas.width / barCount) * 0.2;
-
-          for (let i = 0; i < barCount; i++) {
-            const index = Math.floor((i * bufferLength) / barCount);
-            const value = dataArray[index] || 0;
-            const barHeight = (value / 255) * canvas.height * 0.9;
-            const x = i * (barWidth + gap);
-            const y = canvas.height - barHeight;
-
-            // Create gradient for each bar
-            const gradient = ctx.createLinearGradient(0, y, 0, canvas.height);
-            gradient.addColorStop(0, '#F4D03F');
-            gradient.addColorStop(1, '#FFD700');
-
-            ctx.fillStyle = gradient;
-            ctx.fillRect(x, y, barWidth, barHeight);
-          }
-        };
-
-        draw();
-      } catch (err) {
-        console.error('Visualizer setup error:', err);
-      }
-    };
-
-    // Resume AudioContext on ANY user interaction on the page.
-    // Music can start via the playlist sidebar (not the play button), which never
-    // calls audioCtx.resume(). Browsers require a user gesture to un-suspend the
-    // AudioContext, so we attach a catch-all listener here.
-    const resumeCtx = () => {
-      if (_audioCtx && _audioCtx.state === 'suspended') {
-        _audioCtx.resume().catch(() => {});
-      }
-    };
-    document.addEventListener('click', resumeCtx);
-    document.addEventListener('keydown', resumeCtx);
-
-    setupVisualizer();
-
-    return () => {
-      if (animationId) {
-        cancelAnimationFrame(animationId);
-      }
-      if (cleanupResize) {
-        cleanupResize();
-      }
-      document.removeEventListener('click', resumeCtx);
-      document.removeEventListener('keydown', resumeCtx);
-    };
-  }, [audio]);
 
   const TinyText = styled(Typography)({
     fontSize: "0.75rem",
@@ -447,18 +290,26 @@ export default function MusicPlayer() {
         </Box>
 
         <Box className="flex flex-col items-center w-2/4">
-          <Box sx={{ width: '70%', mb: 1 }}>
-            <canvas 
-              ref={canvasRef} 
-              style={{ 
-                width: '100%', 
-                height: 50, 
-                display: 'block',
-                backgroundColor: '#1a1a1a',
-                borderRadius: '4px',
-                border: '1px solid #F4D03F33'
-              }} 
-            />
+          {/* CSS EQ visualizer — works on all browsers without Web Audio API */}
+          <Box sx={{ width: '70%', mb: 1, height: 50, backgroundColor: '#1a1a1a', borderRadius: '4px', border: '1px solid #F4D03F33', display: 'flex', alignItems: 'flex-end', px: '6px', py: '4px', gap: '2px', overflow: 'hidden' }}>
+            <style>{`@keyframes ayau-eq{0%{transform:scaleY(.12)}100%{transform:scaleY(1)}}`}</style>
+            {EQ_HEIGHTS.map((h, i) => (
+              <div
+                key={i}
+                style={{
+                  flex: 1,
+                  height: `${h}%`,
+                  borderRadius: '2px',
+                  background: 'linear-gradient(to top, #FFD700, #F4D03F88)',
+                  transformOrigin: 'bottom',
+                  transform: state.isPlaying ? undefined : 'scaleY(0.12)',
+                  animation: state.isPlaying
+                    ? `ayau-eq ${0.35 + (i % 7) * 0.1}s ease-in-out ${(i % 5) * 0.07}s infinite alternate`
+                    : 'none',
+                  transition: state.isPlaying ? 'none' : 'transform 0.4s ease',
+                }}
+              />
+            ))}
           </Box>
           <Box sx={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 1 }}>
             <IconButton

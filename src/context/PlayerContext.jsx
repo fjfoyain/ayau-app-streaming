@@ -10,7 +10,6 @@ const initialState = {
     const audio = new Audio();
     audio.volume = 0.5;
     audio.preload = 'none'; // Changed to 'none' to prevent 404 on empty src
-    audio.crossOrigin = 'anonymous'; // Required for Web Audio API visualizer (avoids CORS taint)
     return audio;
   })(),
 };
@@ -98,8 +97,6 @@ const PlayerContext = createContext();
 export const PlayerProvider = ({ children }) => {
   const [state, dispatch] = useReducer(playerReducer, initialState);
   const signedUrlCache = useRef(new Map());
-  const saveTimer = useRef(null);
-  const sessionSongIdRef = useRef(null); // Track current session song
   const nextAudioPreloaderRef = useRef(null); // Hidden audio element for preloading next song data
 
   // When currentSong changes, resolve URL (signed if needed), set audio.src and play
@@ -111,15 +108,6 @@ export const PlayerProvider = ({ children }) => {
 
     const setupAndPlay = async () => {
       try {
-        // Detect if we're switching to a different song
-        const isSwitchingSongs = sessionSongIdRef.current !== null && sessionSongIdRef.current !== state.currentSong.id;
-
-        // Clear resume position for previous song when switching
-        if (isSwitchingSongs) {
-          const prevKey = `resume_${sessionSongIdRef.current}`;
-          localStorage.removeItem(prevKey);
-        }
-
         let url = state.currentSong.url || '';
         // If URL is not an http(s) URL, create signed URL (and check cache)
         if (url && !/^https?:\/\//i.test(url)) {
@@ -136,35 +124,12 @@ export const PlayerProvider = ({ children }) => {
         audio.pause();
         if (url && url.startsWith('http')) {
           audio.src = url;
-          audio.preload = 'metadata'; // Enable preload only when we have a valid URL
+          audio.preload = 'metadata';
           audio.load();
         } else {
           console.error('Invalid audio URL:', url);
           return;
         }
-
-        // Apply resume position ONLY if NOT switching songs (pause/resume or page reload)
-        const onLoaded = () => {
-          try {
-            if (!isSwitchingSongs) {
-              const key = `resume_${state.currentSong.id}`;
-              const stored = localStorage.getItem(key);
-              if (stored) {
-                const pos = parseInt(stored, 10);
-                if (!isNaN(pos) && pos > 5 && pos < audio.duration - 5) {
-                  audio.currentTime = pos;
-                }
-              }
-            }
-          } catch (e) {
-            console.error('Error applying resume position', e);
-          }
-        };
-
-        audio.addEventListener('loadedmetadata', onLoaded, { once: true });
-
-        // Update session tracking
-        sessionSongIdRef.current = state.currentSong.id;
 
         await audio.play().catch((err) => {
           console.warn('Autoplay prevented or audio play error:', err);
@@ -265,41 +230,6 @@ export const PlayerProvider = ({ children }) => {
     };
   }, [state.currentSong, state.isPlaying, state.audio]);
 
-  // Persist resume position (debounced)
-  useEffect(() => {
-    const audio = state.audio;
-    const savePosition = () => {
-      try {
-        const song = state.currentSong;
-        if (!song) return;
-        const key = `resume_${song.id}`;
-        localStorage.setItem(key, Math.floor(audio.currentTime).toString());
-      } catch (e) {
-        console.error('Error saving resume position', e);
-      }
-    };
-
-    const onTimeUpdate = () => {
-      if (saveTimer.current) return;
-      saveTimer.current = setTimeout(() => {
-        savePosition();
-        clearTimeout(saveTimer.current);
-        saveTimer.current = null;
-      }, 3000);
-    };
-
-    audio.addEventListener('timeupdate', onTimeUpdate);
-    audio.addEventListener('pause', savePosition);
-    audio.addEventListener('ended', savePosition);
-
-    return () => {
-      audio.removeEventListener('timeupdate', onTimeUpdate);
-      audio.removeEventListener('pause', savePosition);
-      audio.removeEventListener('ended', savePosition);
-      if (saveTimer.current) clearTimeout(saveTimer.current);
-    };
-  }, [state.currentSong, state.audio]);
-
   // Listen for auth state changes and stop audio on logout
   useEffect(() => {
     const { data: authListener } = supabase.auth.onAuthStateChange((event) => {
@@ -312,14 +242,6 @@ export const PlayerProvider = ({ children }) => {
 
         // Clear player state
         dispatch({ type: "SET_CURRENT_SONG", payload: null });
-
-        // Clear localStorage
-        sessionSongIdRef.current = null;
-        Object.keys(localStorage).forEach(key => {
-          if (key.startsWith('resume_')) {
-            localStorage.removeItem(key);
-          }
-        });
       }
     });
 
