@@ -23,6 +23,10 @@ const playerReducer = (state, action) => {
     case "SET_PLAYING":
       return { ...state, isPlaying: action.payload }
 
+    case "UPDATE_CURRENT_SONG_COVER":
+      if (!state.currentSong) return state;
+      return { ...state, currentSong: { ...state.currentSong, coverImage: action.payload } };
+
     case "PLAY_SONG":
       // reducer keeps state minimal; actual audio control handled in PlayerProvider effects
       return { ...state, currentSong: action.payload, isPlaying: true, currentPlaylist: action.playlistInfo || state.currentPlaylist };
@@ -118,6 +122,22 @@ export const PlayerProvider = ({ children }) => {
             const signed = await getSignedUrl(url, 3600);
             signedUrlCache.current.set(url, signed);
             url = signed;
+          }
+        }
+
+        // Resolve cover image URL if it's a raw storage path (not already http)
+        const rawCover = state.currentSong.coverImage;
+        if (rawCover && !/^https?:\/\//i.test(rawCover)) {
+          const cachedCover = signedUrlCache.current.get(`cover:${rawCover}`);
+          if (cachedCover) {
+            if (mounted) dispatch({ type: 'UPDATE_CURRENT_SONG_COVER', payload: cachedCover });
+          } else {
+            getSignedUrl(rawCover, 3600).then(signed => {
+              signedUrlCache.current.set(`cover:${rawCover}`, signed);
+              if (mounted) dispatch({ type: 'UPDATE_CURRENT_SONG_COVER', payload: signed });
+            }).catch(() => {
+              if (mounted) dispatch({ type: 'UPDATE_CURRENT_SONG_COVER', payload: null });
+            });
           }
         }
 

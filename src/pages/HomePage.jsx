@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
-import { getUserPlaylists, isManagerOrAdmin, getPlaylistSongs, getCurrentUserProfile } from "../services/supabase-api";
+import { getUserPlaylists, isManagerOrAdmin, getPlaylistSongsFast, getCurrentUserProfile } from "../services/supabase-api";
 import MusicPlayer from "../components/MusicPlayer";
 import Button from '@mui/material/Button';
 import IconButton from '@mui/material/IconButton';
@@ -36,7 +36,6 @@ export default function HomePage({ session }) {
   const [userIsAdmin, setUserIsAdmin] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [queueOpen, setQueueOpen] = useState(false);
-  const [loadingPlaylist, setLoadingPlaylist] = useState(false);
 
   useEffect(() => {
     if (session?.user) {
@@ -99,22 +98,19 @@ export default function HomePage({ session }) {
   };
 
   const handlePlayPlaylist = async (playlist) => {
-    setLoadingPlaylist(true);
     setSidebarOpen(false);
 
     try {
-      // Fetch all songs from the playlist
-      const songs = await getPlaylistSongs(playlist.id);
+      // Fast load: single DB query, no cover URL signing (covers resolve lazily per song)
+      const songs = await getPlaylistSongsFast(playlist.id);
 
       if (songs.length === 0) {
         alert('Esta playlist no tiene canciones');
         return;
       }
 
-      // Shuffle the songs for fair distribution
       const shuffledSongs = shuffleArray(songs);
 
-      // Start playing the first song in the shuffled playlist
       dispatch({
         type: "PLAY_SONG",
         payload: shuffledSongs[0],
@@ -123,8 +119,6 @@ export default function HomePage({ session }) {
     } catch (error) {
       console.error("Error loading playlist:", error);
       alert('Error al cargar la playlist');
-    } finally {
-      setLoadingPlaylist(false);
     }
   };
 
@@ -258,7 +252,7 @@ export default function HomePage({ session }) {
                   <button
                     key={playlist.id}
                     onClick={() => handlePlayPlaylist(playlist)}
-                    disabled={loadingPlaylist}
+                    disabled={false}
                     className="w-full text-left p-4 rounded-lg border-2 border-ayau-gold/40 bg-black hover:bg-ayau-gold/10 hover:border-ayau-gold transition-all duration-200 flex items-center gap-3 group disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     <div className="w-12 h-12 rounded-lg bg-ayau-gold/20 flex items-center justify-center border-2 border-ayau-gold/40 group-hover:border-ayau-gold transition-colors">

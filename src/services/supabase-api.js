@@ -104,6 +104,36 @@ export const getPlaylistSongs = async (playlistId) => {
 }
 
 /**
+ * Fast playlist load — returns songs immediately without signing cover URLs.
+ * Cover URLs are raw storage paths; PlayerContext resolves them lazily per song.
+ * Use this for initial playlist start to avoid blocking playback on N cover requests.
+ */
+export const getPlaylistSongsFast = async (playlistId) => {
+  const { data, error } = await supabase
+    .from('playlist_songs')
+    .select(`
+      position,
+      songs (id, title, performer, author, duration, file_url, cover_image_url, isrc)
+    `)
+    .eq('playlist_id', playlistId)
+    .order('position')
+
+  if (error) throw error
+
+  return data.map(item => ({
+    id: item.songs.id,
+    title: item.songs.title,
+    performer: item.songs.performer,
+    author: item.songs.author,
+    duration: item.songs.duration,
+    url: item.songs.file_url,
+    coverImage: item.songs.cover_image_url || null, // raw path — signed in PlayerContext
+    isrc: item.songs.isrc,
+    playlistId: playlistId,
+  }));
+}
+
+/**
  * Registrar reproducción en play_history
  * IMPORTANTE: Se registra cuando se cambia de canción o se pausa
  */
