@@ -320,26 +320,25 @@ export default function MusicPlayer() {
 
   return (
     <footer className="bg-black text-ayau-gold flex flex-col border-t-2 border-ayau-gold">
-      <div className="w-full">
+      {/* Seek bar row with times on each side */}
+      <div className="flex items-center gap-3 px-6 lg:px-10 pt-2">
+        <TinyText sx={{ minWidth: 36, textAlign: 'right' }}>{formatTime(currentTime)}</TinyText>
         <Slider
           sx={{
+            flex: 1,
             color: "#F4D03F",
             height: 6,
-            padding: 0,
+            padding: '4px 0',
             '& .MuiSlider-thumb': {
-              width: 16,
-              height: 16,
+              width: 14,
+              height: 14,
               backgroundColor: '#F4D03F',
               '&:hover': {
                 boxShadow: '0 0 0 8px rgba(244, 208, 63, 0.16)',
               },
             },
-            '& .MuiSlider-track': {
-              backgroundColor: '#F4D03F',
-            },
-            '& .MuiSlider-rail': {
-              backgroundColor: '#333',
-            },
+            '& .MuiSlider-track': { backgroundColor: '#F4D03F' },
+            '& .MuiSlider-rail': { backgroundColor: '#333' },
           }}
           aria-label="Seek"
           min={0}
@@ -347,8 +346,9 @@ export default function MusicPlayer() {
           value={currentTime}
           onChange={handleSeek}
         />
+        <TinyText sx={{ minWidth: 36 }}>-{formatTime(duration - currentTime)}</TinyText>
       </div>
-      <div className="flex justify-between items-center px-6 lg:px-10 py-4">
+      <div className="flex justify-between items-center px-6 lg:px-10 py-3">
         <Box className="w-1/4 lg:w-1/4" sx={{ display: "flex", alignItems: "center", gap: 2 }}>
           <CoverImage>
             <img alt="album cover" src={displayedCover} />
@@ -429,10 +429,6 @@ export default function MusicPlayer() {
             >
               <FastForwardRounded fontSize="large" />
             </IconButton>
-          </Box>
-          <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", width: '100%', mt: 1 }}>
-            <TinyText>{formatTime(currentTime)}</TinyText>
-            <TinyText>-{formatTime(duration - currentTime)}</TinyText>
           </Box>
         </Box>
 
