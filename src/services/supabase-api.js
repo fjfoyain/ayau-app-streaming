@@ -640,6 +640,37 @@ export const uploadAudioFile = async (file, songId) => {
 }
 
 /**
+ * Subir imagen de portada de playlist a Supabase Storage
+ */
+export const uploadPlaylistCover = async (file, playlistId) => {
+  const fileExt = file.name.split('.').pop()
+  const fileName = `playlist-${playlistId}.${fileExt}`
+  const filePath = `covers/${fileName}`
+
+  const { error } = await supabase.storage
+    .from('covers')
+    .upload(fileName, file, {
+      cacheControl: '3600',
+      upsert: true
+    })
+
+  if (error) throw error
+  return filePath
+}
+
+/**
+ * Eliminar archivo de Supabase Storage
+ * `filePath` formato esperado: "bucket/path/to/file.ext"
+ */
+export const deleteStorageFile = async (filePath) => {
+  if (!filePath || /^https?:\/\//i.test(filePath)) return
+  const parts = filePath.split('/')
+  const bucket = parts[0]
+  const path = parts.slice(1).join('/')
+  await supabase.storage.from(bucket).remove([path])
+}
+
+/**
  * Subir imagen de portada a Supabase Storage
  */
 export const uploadCoverImage = async (file, songId) => {

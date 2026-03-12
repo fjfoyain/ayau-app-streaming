@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import Button from '@mui/material/Button';
@@ -23,7 +23,8 @@ import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import CancelIcon from '@mui/icons-material/Cancel';
-import { getUserPlaylists, createPlaylist, updatePlaylist, deletePlaylist } from '../../services/supabase-api';
+import CloudUploadIcon from '@mui/icons-material/CloudUpload';
+import { getUserPlaylists, createPlaylist, updatePlaylist, deletePlaylist, uploadPlaylistCover, deleteStorageFile } from '../../services/supabase-api';
 
 export default function PlaylistManager() {
   const [playlists, setPlaylists] = useState([]);
@@ -36,6 +37,10 @@ export default function PlaylistManager() {
     cover_image_url: '',
     is_public: false,
   });
+  const [coverFile, setCoverFile] = useState(null);
+  const [coverPreview, setCoverPreview] = useState(null);
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef(null);
 
   useEffect(() => {
     fetchPlaylists();
@@ -61,35 +66,66 @@ export default function PlaylistManager() {
         cover_image_url: playlist.cover_image_url || '',
         is_public: playlist.is_public,
       });
+      // Show existing cover as preview if it's an http URL (already signed)
+      setCoverPreview(playlist.cover_image_url && /^https?:\/\//i.test(playlist.cover_image_url)
+        ? playlist.cover_image_url
+        : null);
     } else {
       setEditingPlaylist(null);
-      setFormData({
-        name: '',
-        description: '',
-        cover_image_url: '',
-        is_public: false,
-      });
+      setFormData({ name: '', description: '', cover_image_url: '', is_public: false });
+      setCoverPreview(null);
     }
+    setCoverFile(null);
     setDialogOpen(true);
   };
 
   const handleCloseDialog = () => {
     setDialogOpen(false);
     setEditingPlaylist(null);
+    setCoverFile(null);
+    setCoverPreview(null);
+  };
+
+  const handleCoverFileChange = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    setCoverFile(file);
+    setCoverPreview(URL.createObjectURL(file));
   };
 
   const handleSubmit = async () => {
+    if (!formData.name.trim()) return;
+    setUploading(true);
     try {
       if (editingPlaylist) {
-        await updatePlaylist(editingPlaylist.id, formData);
+        let updates = { ...formData };
+
+        if (coverFile) {
+          // Delete old storage file if it was a storage path
+          if (editingPlaylist.cover_image_url && !/^https?:\/\//i.test(editingPlaylist.cover_image_url)) {
+            await deleteStorageFile(editingPlaylist.cover_image_url);
+          }
+          const newPath = await uploadPlaylistCover(coverFile, editingPlaylist.id);
+          updates.cover_image_url = newPath;
+        }
+
+        await updatePlaylist(editingPlaylist.id, updates);
       } else {
-        await createPlaylist(formData);
+        const newPlaylist = await createPlaylist(formData);
+
+        if (coverFile) {
+          const coverPath = await uploadPlaylistCover(coverFile, newPlaylist.id);
+          await updatePlaylist(newPlaylist.id, { cover_image_url: coverPath });
+        }
       }
+
       handleCloseDialog();
       fetchPlaylists();
     } catch (error) {
       console.error('Error saving playlist:', error);
       alert('Error al guardar la playlist');
+    } finally {
+      setUploading(false);
     }
   };
 
@@ -97,12 +133,31 @@ export default function PlaylistManager() {
     if (!confirm('¿Estás seguro de eliminar esta playlist?')) return;
 
     try {
+      const playlist = playlists.find(p => p.id === playlistId);
       await deletePlaylist(playlistId);
+
+      // Delete cover from storage if it's a storage path
+      if (playlist?.cover_image_url && !/^https?:\/\//i.test(playlist.cover_image_url)) {
+        await deleteStorageFile(playlist.cover_image_url);
+      }
+
       fetchPlaylists();
     } catch (error) {
       console.error('Error deleting playlist:', error);
       alert('Error al eliminar la playlist');
     }
+  };
+
+  const inputSx = {
+    mb: 2,
+    '& .MuiOutlinedInput-root': {
+      color: '#F4D03F',
+      '& fieldset': { borderColor: '#F4D03F44' },
+      '&:hover fieldset': { borderColor: '#F4D03F' },
+      '&.Mui-focused fieldset': { borderColor: '#F4D03F' },
+    },
+    '& .MuiInputLabel-root': { color: '#F4D03F99' },
+    '& .MuiInputLabel-root.Mui-focused': { color: '#F4D03F' },
   };
 
   if (loading) {
@@ -127,9 +182,7 @@ export default function PlaylistManager() {
             backgroundColor: '#F4D03F',
             color: '#000',
             fontWeight: 'bold',
-            '&:hover': {
-              backgroundColor: '#F4D03Fdd',
-            },
+            '&:hover': { backgroundColor: '#F4D03Fdd' },
           }}
         >
           Nueva Playlist
@@ -172,16 +225,10 @@ export default function PlaylistManager() {
                   )}
                 </TableCell>
                 <TableCell align="center">
-                  <IconButton
-                    onClick={() => handleOpenDialog(playlist)}
-                    sx={{ color: '#F4D03F' }}
-                  >
+                  <IconButton onClick={() => handleOpenDialog(playlist)} sx={{ color: '#F4D03F' }}>
                     <EditIcon />
                   </IconButton>
-                  <IconButton
-                    onClick={() => handleDelete(playlist.id)}
-                    sx={{ color: '#F4D03F' }}
-                  >
+                  <IconButton onClick={() => handleDelete(playlist.id)} sx={{ color: '#F4D03F' }}>
                     <DeleteIcon />
                   </IconButton>
                 </TableCell>
@@ -217,17 +264,7 @@ export default function PlaylistManager() {
             variant="outlined"
             value={formData.name}
             onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-            sx={{
-              mb: 2,
-              '& .MuiOutlinedInput-root': {
-                color: '#F4D03F',
-                '& fieldset': { borderColor: '#F4D03F44' },
-                '&:hover fieldset': { borderColor: '#F4D03F' },
-                '&.Mui-focused fieldset': { borderColor: '#F4D03F' },
-              },
-              '& .MuiInputLabel-root': { color: '#F4D03F99' },
-              '& .MuiInputLabel-root.Mui-focused': { color: '#F4D03F' },
-            }}
+            sx={inputSx}
           />
           <TextField
             margin="dense"
@@ -238,37 +275,60 @@ export default function PlaylistManager() {
             variant="outlined"
             value={formData.description}
             onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-            sx={{
-              mb: 2,
-              '& .MuiOutlinedInput-root': {
-                color: '#F4D03F',
-                '& fieldset': { borderColor: '#F4D03F44' },
-                '&:hover fieldset': { borderColor: '#F4D03F' },
-                '&.Mui-focused fieldset': { borderColor: '#F4D03F' },
-              },
-              '& .MuiInputLabel-root': { color: '#F4D03F99' },
-              '& .MuiInputLabel-root.Mui-focused': { color: '#F4D03F' },
-            }}
+            sx={inputSx}
           />
-          <TextField
-            margin="dense"
-            label="URL de Imagen de Portada"
-            fullWidth
-            variant="outlined"
-            value={formData.cover_image_url}
-            onChange={(e) => setFormData({ ...formData, cover_image_url: e.target.value })}
-            sx={{
-              mb: 2,
-              '& .MuiOutlinedInput-root': {
-                color: '#F4D03F',
-                '& fieldset': { borderColor: '#F4D03F44' },
-                '&:hover fieldset': { borderColor: '#F4D03F' },
-                '&.Mui-focused fieldset': { borderColor: '#F4D03F' },
-              },
-              '& .MuiInputLabel-root': { color: '#F4D03F99' },
-              '& .MuiInputLabel-root.Mui-focused': { color: '#F4D03F' },
-            }}
-          />
+
+          {/* Cover image upload */}
+          <Box sx={{ mb: 2 }}>
+            <Typography variant="caption" sx={{ color: '#F4D03F99', display: 'block', mb: 1 }}>
+              Imagen de Portada
+            </Typography>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+              {coverPreview && (
+                <Box
+                  component="img"
+                  src={coverPreview}
+                  alt="preview"
+                  sx={{
+                    width: 80,
+                    height: 80,
+                    objectFit: 'cover',
+                    borderRadius: '8px',
+                    border: '1px solid #F4D03F44',
+                  }}
+                />
+              )}
+              <Button
+                variant="outlined"
+                startIcon={<CloudUploadIcon />}
+                onClick={() => fileInputRef.current?.click()}
+                sx={{
+                  color: '#F4D03F',
+                  borderColor: '#F4D03F44',
+                  '&:hover': { borderColor: '#F4D03F', backgroundColor: '#F4D03F11' },
+                }}
+              >
+                {coverPreview ? 'Cambiar imagen' : 'Subir imagen'}
+              </Button>
+              {coverPreview && (
+                <Button
+                  size="small"
+                  onClick={() => { setCoverFile(null); setCoverPreview(null); setFormData({ ...formData, cover_image_url: '' }); }}
+                  sx={{ color: '#F4D03F66', '&:hover': { color: '#F4D03F' } }}
+                >
+                  Quitar
+                </Button>
+              )}
+            </Box>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              style={{ display: 'none' }}
+              onChange={handleCoverFileChange}
+            />
+          </Box>
+
           <FormControlLabel
             control={
               <Switch
@@ -285,23 +345,22 @@ export default function PlaylistManager() {
           />
         </DialogContent>
         <DialogActions sx={{ p: 3 }}>
-          <Button
-            onClick={handleCloseDialog}
-            sx={{ color: '#F4D03F' }}
-          >
+          <Button onClick={handleCloseDialog} sx={{ color: '#F4D03F' }} disabled={uploading}>
             Cancelar
           </Button>
           <Button
             onClick={handleSubmit}
             variant="contained"
+            disabled={uploading || !formData.name.trim()}
             sx={{
               backgroundColor: '#F4D03F',
               color: '#000',
               fontWeight: 'bold',
               '&:hover': { backgroundColor: '#F4D03Fdd' },
+              '&:disabled': { backgroundColor: '#F4D03F44', color: '#00000088' },
             }}
           >
-            {editingPlaylist ? 'Guardar' : 'Crear'}
+            {uploading ? <CircularProgress size={20} sx={{ color: '#000' }} /> : (editingPlaylist ? 'Guardar' : 'Crear')}
           </Button>
         </DialogActions>
       </Dialog>
