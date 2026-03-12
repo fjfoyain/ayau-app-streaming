@@ -363,6 +363,11 @@ export default function MusicPlayer() {
               </Typography>
               <SyncStatusIndicator compact />
             </Box>
+            {state?.currentSong?.album && (
+              <Typography noWrap variant="body2" sx={{ color: '#F4D03F66', fontSize: '0.8rem', fontStyle: 'italic' }}>
+                {state.currentSong.album}
+              </Typography>
+            )}
           </Box>
         </Box>
 
