@@ -91,6 +91,7 @@ export const getPlaylistSongs = async (playlistId) => {
         title: item.songs.title,
         performer: item.songs.performer,
         author: item.songs.author,
+        album: item.songs.album,
         duration: item.songs.duration,
         url: item.songs.file_url,
         coverImage: coverUrl,
@@ -113,7 +114,7 @@ export const getPlaylistSongsFast = async (playlistId) => {
     .from('playlist_songs')
     .select(`
       position,
-      songs (id, title, performer, author, duration, file_url, cover_image_url, isrc)
+      songs (id, title, performer, author, album, duration, file_url, cover_image_url, isrc)
     `)
     .eq('playlist_id', playlistId)
     .order('position')
@@ -125,6 +126,7 @@ export const getPlaylistSongsFast = async (playlistId) => {
     title: item.songs.title,
     performer: item.songs.performer,
     author: item.songs.author,
+    album: item.songs.album,
     duration: item.songs.duration,
     url: item.songs.file_url,
     coverImage: item.songs.cover_image_url || null, // raw path — signed in PlayerContext

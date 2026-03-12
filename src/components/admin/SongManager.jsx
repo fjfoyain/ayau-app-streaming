@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import Button from '@mui/material/Button';
@@ -8,6 +8,7 @@ import TableCell from '@mui/material/TableCell';
 import TableContainer from '@mui/material/TableContainer';
 import TableHead from '@mui/material/TableHead';
 import TableRow from '@mui/material/TableRow';
+import TablePagination from '@mui/material/TablePagination';
 import Paper from '@mui/material/Paper';
 import IconButton from '@mui/material/IconButton';
 import Dialog from '@mui/material/Dialog';
@@ -15,10 +16,16 @@ import DialogTitle from '@mui/material/DialogTitle';
 import DialogContent from '@mui/material/DialogContent';
 import DialogActions from '@mui/material/DialogActions';
 import TextField from '@mui/material/TextField';
+import Select from '@mui/material/Select';
+import MenuItem from '@mui/material/MenuItem';
+import Chip from '@mui/material/Chip';
+import Tooltip from '@mui/material/Tooltip';
 import Checkbox from '@mui/material/Checkbox';
 import FormControlLabel from '@mui/material/FormControlLabel';
 import CircularProgress from '@mui/material/CircularProgress';
 import LinearProgress from '@mui/material/LinearProgress';
+import FilterListIcon from '@mui/icons-material/FilterList';
+import ClearIcon from '@mui/icons-material/Clear';
 import AddIcon from '@mui/icons-material/Add';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
@@ -44,9 +51,13 @@ export default function SongManager() {
   const [songs, setSongs] = useState([]);
   const [playlists, setPlaylists] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [sortBy, setSortBy] = useState('performer');
-  const [sortDir, setSortDir] = useState('asc');
+  // sortKeys: [{key, dir}] — first = primary, second = secondary
+  const [sortKeys, setSortKeys] = useState([{ key: 'performer', dir: 'asc' }]);
   const [searchQuery, setSearchQuery] = useState('');
+  const [artistFilter, setArtistFilter] = useState('');
+  const [albumFilter, setAlbumFilter] = useState('');
+  const [page, setPage] = useState(0);
+  const [rowsPerPage, setRowsPerPage] = useState(50);
   const [uploading, setUploading] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [playlistDialogOpen, setPlaylistDialogOpen] = useState(false);
@@ -92,48 +103,87 @@ export default function SongManager() {
     }
   };
 
-  const handleSort = (column) => {
-    if (sortBy === column) {
-      setSortDir(prev => prev === 'asc' ? 'desc' : 'asc');
-    } else {
-      setSortBy(column);
-      setSortDir('asc');
-    }
+  // Click = set as primary (clear secondary). Shift+click = add/toggle as secondary.
+  const handleSort = (column, e) => {
+    const isShift = e?.shiftKey;
+    setSortKeys(prev => {
+      const existingIdx = prev.findIndex(k => k.key === column);
+      if (isShift) {
+        // Shift+click: toggle secondary (keep primary intact)
+        if (existingIdx === 0) return prev; // don't demote primary
+        if (existingIdx > 0) {
+          // toggle dir of existing secondary
+          return prev.map((k, i) => i === existingIdx ? { ...k, dir: k.dir === 'asc' ? 'desc' : 'asc' } : k);
+        }
+        // Add as secondary (max 2 levels)
+        return [prev[0], { key: column, dir: 'asc' }];
+      }
+      // Normal click: set as primary
+      if (existingIdx === 0) {
+        // toggle primary dir
+        return [{ key: column, dir: prev[0].dir === 'asc' ? 'desc' : 'asc' }, ...prev.slice(1)];
+      }
+      return [{ key: column, dir: 'asc' }];
+    });
+    setPage(0);
   };
 
-  const displayedSongs = [...songs]
+  const sortIndicator = (column) => {
+    const idx = sortKeys.findIndex(k => k.key === column);
+    if (idx === -1) return null;
+    const arrow = sortKeys[idx].dir === 'asc' ? '↑' : '↓';
+    return sortKeys.length > 1 ? ` ${idx + 1}${arrow}` : ` ${arrow}`;
+  };
+
+  const uniqueArtists = useMemo(() =>
+    [...new Set(songs.map(s => s.performer).filter(Boolean))].sort(), [songs]);
+
+  const uniqueAlbums = useMemo(() => {
+    const source = artistFilter ? songs.filter(s => s.performer === artistFilter) : songs;
+    return [...new Set(source.map(s => s.album).filter(Boolean))].sort();
+  }, [songs, artistFilter]);
+
+  const filteredSongs = useMemo(() => [...songs]
     .filter(song => {
-      if (!searchQuery.trim()) return true;
-      const q = searchQuery.toLowerCase();
-      return (
-        song.title?.toLowerCase().includes(q) ||
-        song.performer?.toLowerCase().includes(q) ||
-        song.album?.toLowerCase().includes(q) ||
-        song.author?.toLowerCase().includes(q)
-      );
+      if (artistFilter && song.performer !== artistFilter) return false;
+      if (albumFilter && song.album !== albumFilter) return false;
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase();
+        return (
+          song.title?.toLowerCase().includes(q) ||
+          song.performer?.toLowerCase().includes(q) ||
+          song.album?.toLowerCase().includes(q) ||
+          song.author?.toLowerCase().includes(q)
+        );
+      }
+      return true;
     })
     .sort((a, b) => {
-      let aVal = a[sortBy] ?? '';
-      let bVal = b[sortBy] ?? '';
-      if (typeof aVal === 'string') aVal = aVal.toLowerCase();
-      if (typeof bVal === 'string') bVal = bVal.toLowerCase();
-      if (aVal < bVal) return sortDir === 'asc' ? -1 : 1;
-      if (aVal > bVal) return sortDir === 'asc' ? 1 : -1;
-      // Secondary sort: performer → album → title
-      if (sortBy !== 'performer') {
-        const pa = (a.performer ?? '').toLowerCase();
-        const pb = (b.performer ?? '').toLowerCase();
-        if (pa < pb) return -1;
-        if (pa > pb) return 1;
+      for (const { key, dir } of sortKeys) {
+        let aVal = (a[key] ?? '');
+        let bVal = (b[key] ?? '');
+        if (typeof aVal === 'string') aVal = aVal.toLowerCase();
+        if (typeof bVal === 'string') bVal = bVal.toLowerCase();
+        if (aVal < bVal) return dir === 'asc' ? -1 : 1;
+        if (aVal > bVal) return dir === 'asc' ? 1 : -1;
       }
-      if (sortBy !== 'album') {
-        const aa = (a.album ?? '').toLowerCase();
-        const ab = (b.album ?? '').toLowerCase();
-        if (aa < ab) return -1;
-        if (aa > ab) return 1;
-      }
+      // Final tiebreak: title
       return (a.title ?? '').toLowerCase().localeCompare((b.title ?? '').toLowerCase());
-    });
+    }),
+  [songs, searchQuery, artistFilter, albumFilter, sortKeys]);
+
+  const displayedSongs = rowsPerPage > 0
+    ? filteredSongs.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
+    : filteredSongs;
+
+  const hasActiveFilters = searchQuery || artistFilter || albumFilter;
+
+  const clearAllFilters = () => {
+    setSearchQuery('');
+    setArtistFilter('');
+    setAlbumFilter('');
+    setPage(0);
+  };
 
   const handleFileSelect = async (event) => {
     const file = event.target.files[0];
@@ -580,14 +630,15 @@ export default function SongManager() {
         </Box>
       </Box>
 
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
+      {/* Filter & search toolbar */}
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 1, flexWrap: 'wrap' }}>
         <TextField
           placeholder="Buscar por título, artista, álbum o autor..."
           value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
+          onChange={(e) => { setSearchQuery(e.target.value); setPage(0); }}
           size="small"
           sx={{
-            flex: 1,
+            flex: 1, minWidth: 220,
             '& .MuiOutlinedInput-root': {
               color: '#F4D03F',
               '& fieldset': { borderColor: '#F4D03F44' },
@@ -597,10 +648,81 @@ export default function SongManager() {
             '& .MuiInputBase-input::placeholder': { color: '#F4D03F66' },
           }}
         />
-        <Typography sx={{ color: '#F4D03F66', fontSize: '0.85rem', whiteSpace: 'nowrap' }}>
-          {displayedSongs.length} de {songs.length} canciones
+        <Select
+          displayEmpty
+          value={artistFilter}
+          onChange={(e) => { setArtistFilter(e.target.value); setAlbumFilter(''); setPage(0); }}
+          size="small"
+          sx={{
+            minWidth: 180, color: '#F4D03F',
+            '& .MuiOutlinedInput-notchedOutline': { borderColor: '#F4D03F44' },
+            '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#F4D03F' },
+            '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#F4D03F' },
+            '& .MuiSvgIcon-root': { color: '#F4D03F' },
+          }}
+          MenuProps={{ PaperProps: { sx: { backgroundColor: '#111', color: '#F4D03F' } } }}
+        >
+          <MenuItem value=""><em style={{ color: '#F4D03F66' }}>Todos los artistas</em></MenuItem>
+          {uniqueArtists.map(a => <MenuItem key={a} value={a}>{a}</MenuItem>)}
+        </Select>
+        <Select
+          displayEmpty
+          value={albumFilter}
+          onChange={(e) => { setAlbumFilter(e.target.value); setPage(0); }}
+          size="small"
+          sx={{
+            minWidth: 180, color: '#F4D03F',
+            '& .MuiOutlinedInput-notchedOutline': { borderColor: '#F4D03F44' },
+            '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#F4D03F' },
+            '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#F4D03F' },
+            '& .MuiSvgIcon-root': { color: '#F4D03F' },
+          }}
+          MenuProps={{ PaperProps: { sx: { backgroundColor: '#111', color: '#F4D03F' } } }}
+        >
+          <MenuItem value=""><em style={{ color: '#F4D03F66' }}>Todos los álbumes</em></MenuItem>
+          {uniqueAlbums.map(a => <MenuItem key={a} value={a}>{a}</MenuItem>)}
+        </Select>
+        {hasActiveFilters && (
+          <Tooltip title="Limpiar filtros">
+            <IconButton onClick={clearAllFilters} sx={{ color: '#F4D03F99' }}>
+              <ClearIcon />
+            </IconButton>
+          </Tooltip>
+        )}
+        <Typography sx={{ color: '#F4D03F66', fontSize: '0.85rem', whiteSpace: 'nowrap', ml: 'auto' }}>
+          {filteredSongs.length} de {songs.length} canciones
         </Typography>
       </Box>
+      {/* Active sort chips */}
+      {sortKeys.length > 0 && (
+        <Box sx={{ display: 'flex', gap: 1, mb: 1.5, flexWrap: 'wrap', alignItems: 'center' }}>
+          <FilterListIcon sx={{ color: '#F4D03F66', fontSize: '1rem' }} />
+          {sortKeys.map((k, i) => (
+            <Chip
+              key={k.key}
+              label={`${i + 1}. ${k.key === 'performer' ? 'Artista' : k.key === 'album' ? 'Álbum' : k.key === 'title' ? 'Título' : 'Duración'} ${k.dir === 'asc' ? '↑' : '↓'}`}
+              size="small"
+              onDelete={i > 0 ? () => setSortKeys(prev => prev.filter((_, idx) => idx !== i)) : undefined}
+              sx={{
+                backgroundColor: i === 0 ? '#F4D03F22' : '#F4D03F11',
+                color: '#F4D03F',
+                border: `1px solid ${i === 0 ? '#F4D03F66' : '#F4D03F33'}`,
+                '& .MuiChip-deleteIcon': { color: '#F4D03F66' },
+              }}
+            />
+          ))}
+          {sortKeys.length > 1 && (
+            <Typography sx={{ color: '#F4D03F44', fontSize: '0.75rem' }}>
+              Shift+click para agregar nivel
+            </Typography>
+          )}
+          {sortKeys.length === 1 && (
+            <Typography sx={{ color: '#F4D03F44', fontSize: '0.75rem' }}>
+              Shift+click en columna para agregar orden secundario
+            </Typography>
+          )}
+        </Box>
+      )}
 
       <TableContainer
         component={Paper}
@@ -613,18 +735,25 @@ export default function SongManager() {
         <Table>
           <TableHead>
             <TableRow sx={{ borderBottom: '2px solid #F4D03F44' }}>
-              <TableCell sx={{ color: '#F4D03F', fontWeight: 'bold', cursor: 'pointer', userSelect: 'none' }} onClick={() => handleSort('title')}>
-                Título {sortBy === 'title' ? (sortDir === 'asc' ? '↑' : '↓') : ''}
-              </TableCell>
-              <TableCell sx={{ color: '#F4D03F', fontWeight: 'bold', cursor: 'pointer', userSelect: 'none' }} onClick={() => handleSort('performer')}>
-                Artista {sortBy === 'performer' ? (sortDir === 'asc' ? '↑' : '↓') : ''}
-              </TableCell>
-              <TableCell sx={{ color: '#F4D03F', fontWeight: 'bold', cursor: 'pointer', userSelect: 'none' }} onClick={() => handleSort('album')}>
-                Álbum {sortBy === 'album' ? (sortDir === 'asc' ? '↑' : '↓') : ''}
-              </TableCell>
+              {[
+                { key: 'title', label: 'Título' },
+                { key: 'performer', label: 'Artista' },
+                { key: 'album', label: 'Álbum' },
+              ].map(col => (
+                <TableCell
+                  key={col.key}
+                  onClick={(e) => handleSort(col.key, e)}
+                  sx={{ color: '#F4D03F', fontWeight: 'bold', cursor: 'pointer', userSelect: 'none',
+                    backgroundColor: sortKeys.find(k => k.key === col.key) ? '#F4D03F08' : 'transparent' }}
+                >
+                  {col.label}{sortIndicator(col.key)}
+                </TableCell>
+              ))}
               <TableCell sx={{ color: '#F4D03F', fontWeight: 'bold' }}>Autor</TableCell>
-              <TableCell align="center" onClick={() => handleSort('duration')} sx={{ color: '#F4D03F', fontWeight: 'bold', cursor: 'pointer', userSelect: 'none' }}>
-                Duración {sortBy === 'duration' ? (sortDir === 'asc' ? '↑' : '↓') : ''}
+              <TableCell align="center" onClick={(e) => handleSort('duration', e)}
+                sx={{ color: '#F4D03F', fontWeight: 'bold', cursor: 'pointer', userSelect: 'none',
+                  backgroundColor: sortKeys.find(k => k.key === 'duration') ? '#F4D03F08' : 'transparent' }}>
+                Duración{sortIndicator('duration')}
               </TableCell>
               <TableCell sx={{ color: '#F4D03F', fontWeight: 'bold' }} align="center">ISRC</TableCell>
               <TableCell sx={{ color: '#F4D03F', fontWeight: 'bold' }} align="center">Acciones</TableCell>
@@ -675,6 +804,24 @@ export default function SongManager() {
           </TableBody>
         </Table>
       </TableContainer>
+
+      <TablePagination
+        component="div"
+        count={filteredSongs.length}
+        page={page}
+        onPageChange={(_, newPage) => setPage(newPage)}
+        rowsPerPage={rowsPerPage}
+        onRowsPerPageChange={(e) => { setRowsPerPage(parseInt(e.target.value, 10)); setPage(0); }}
+        rowsPerPageOptions={[25, 50, 100, { label: 'Todos', value: -1 }]}
+        labelRowsPerPage="Por página:"
+        labelDisplayedRows={({ from, to, count }) => `${from}–${to} de ${count}`}
+        sx={{
+          color: '#F4D03F99',
+          '& .MuiSvgIcon-root': { color: '#F4D03F99' },
+          '& .MuiSelect-select': { color: '#F4D03F99' },
+          '& .MuiTablePagination-selectLabel, & .MuiTablePagination-displayedRows': { color: '#F4D03F66' },
+        }}
+      />
 
       {/* Dialog for Create/Edit Song */}
       <Dialog
