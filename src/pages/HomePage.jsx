@@ -34,7 +34,7 @@ export default function HomePage({ session }) {
   const [loadingPlaylists, setLoadingPlaylists] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [userIsAdmin, setUserIsAdmin] = useState(false);
-  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(true);
   const [queueOpen, setQueueOpen] = useState(false);
 
   useEffect(() => {

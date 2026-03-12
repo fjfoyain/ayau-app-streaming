@@ -44,6 +44,9 @@ export default function SongManager() {
   const [songs, setSongs] = useState([]);
   const [playlists, setPlaylists] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [sortBy, setSortBy] = useState('performer');
+  const [sortDir, setSortDir] = useState('asc');
+  const [searchQuery, setSearchQuery] = useState('');
   const [uploading, setUploading] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [playlistDialogOpen, setPlaylistDialogOpen] = useState(false);
@@ -88,6 +91,49 @@ export default function SongManager() {
       setLoading(false);
     }
   };
+
+  const handleSort = (column) => {
+    if (sortBy === column) {
+      setSortDir(prev => prev === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortBy(column);
+      setSortDir('asc');
+    }
+  };
+
+  const displayedSongs = [...songs]
+    .filter(song => {
+      if (!searchQuery.trim()) return true;
+      const q = searchQuery.toLowerCase();
+      return (
+        song.title?.toLowerCase().includes(q) ||
+        song.performer?.toLowerCase().includes(q) ||
+        song.album?.toLowerCase().includes(q) ||
+        song.author?.toLowerCase().includes(q)
+      );
+    })
+    .sort((a, b) => {
+      let aVal = a[sortBy] ?? '';
+      let bVal = b[sortBy] ?? '';
+      if (typeof aVal === 'string') aVal = aVal.toLowerCase();
+      if (typeof bVal === 'string') bVal = bVal.toLowerCase();
+      if (aVal < bVal) return sortDir === 'asc' ? -1 : 1;
+      if (aVal > bVal) return sortDir === 'asc' ? 1 : -1;
+      // Secondary sort: performer → album → title
+      if (sortBy !== 'performer') {
+        const pa = (a.performer ?? '').toLowerCase();
+        const pb = (b.performer ?? '').toLowerCase();
+        if (pa < pb) return -1;
+        if (pa > pb) return 1;
+      }
+      if (sortBy !== 'album') {
+        const aa = (a.album ?? '').toLowerCase();
+        const ab = (b.album ?? '').toLowerCase();
+        if (aa < ab) return -1;
+        if (aa > ab) return 1;
+      }
+      return (a.title ?? '').toLowerCase().localeCompare((b.title ?? '').toLowerCase());
+    });
 
   const handleFileSelect = async (event) => {
     const file = event.target.files[0];
@@ -534,6 +580,28 @@ export default function SongManager() {
         </Box>
       </Box>
 
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
+        <TextField
+          placeholder="Buscar por título, artista, álbum o autor..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          size="small"
+          sx={{
+            flex: 1,
+            '& .MuiOutlinedInput-root': {
+              color: '#F4D03F',
+              '& fieldset': { borderColor: '#F4D03F44' },
+              '&:hover fieldset': { borderColor: '#F4D03F' },
+              '&.Mui-focused fieldset': { borderColor: '#F4D03F' },
+            },
+            '& .MuiInputBase-input::placeholder': { color: '#F4D03F66' },
+          }}
+        />
+        <Typography sx={{ color: '#F4D03F66', fontSize: '0.85rem', whiteSpace: 'nowrap' }}>
+          {displayedSongs.length} de {songs.length} canciones
+        </Typography>
+      </Box>
+
       <TableContainer
         component={Paper}
         sx={{
@@ -545,16 +613,25 @@ export default function SongManager() {
         <Table>
           <TableHead>
             <TableRow sx={{ borderBottom: '2px solid #F4D03F44' }}>
-              <TableCell sx={{ color: '#F4D03F', fontWeight: 'bold' }}>Título</TableCell>
-              <TableCell sx={{ color: '#F4D03F', fontWeight: 'bold' }}>Artista</TableCell>
+              <TableCell sx={{ color: '#F4D03F', fontWeight: 'bold', cursor: 'pointer', userSelect: 'none' }} onClick={() => handleSort('title')}>
+                Título {sortBy === 'title' ? (sortDir === 'asc' ? '↑' : '↓') : ''}
+              </TableCell>
+              <TableCell sx={{ color: '#F4D03F', fontWeight: 'bold', cursor: 'pointer', userSelect: 'none' }} onClick={() => handleSort('performer')}>
+                Artista {sortBy === 'performer' ? (sortDir === 'asc' ? '↑' : '↓') : ''}
+              </TableCell>
+              <TableCell sx={{ color: '#F4D03F', fontWeight: 'bold', cursor: 'pointer', userSelect: 'none' }} onClick={() => handleSort('album')}>
+                Álbum {sortBy === 'album' ? (sortDir === 'asc' ? '↑' : '↓') : ''}
+              </TableCell>
               <TableCell sx={{ color: '#F4D03F', fontWeight: 'bold' }}>Autor</TableCell>
-              <TableCell sx={{ color: '#F4D03F', fontWeight: 'bold' }} align="center">Duración</TableCell>
+              <TableCell align="center" onClick={() => handleSort('duration')} sx={{ color: '#F4D03F', fontWeight: 'bold', cursor: 'pointer', userSelect: 'none' }}>
+                Duración {sortBy === 'duration' ? (sortDir === 'asc' ? '↑' : '↓') : ''}
+              </TableCell>
               <TableCell sx={{ color: '#F4D03F', fontWeight: 'bold' }} align="center">ISRC</TableCell>
               <TableCell sx={{ color: '#F4D03F', fontWeight: 'bold' }} align="center">Acciones</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
-            {songs.map((song) => (
+            {displayedSongs.map((song) => (
               <TableRow
                 key={song.id}
                 sx={{
@@ -564,6 +641,7 @@ export default function SongManager() {
               >
                 <TableCell sx={{ color: '#F4D03F' }}>{song.title}</TableCell>
                 <TableCell sx={{ color: '#F4D03F99' }}>{song.performer}</TableCell>
+                <TableCell sx={{ color: '#F4D03F99' }}>{song.album || '-'}</TableCell>
                 <TableCell sx={{ color: '#F4D03F99' }}>{song.author || '-'}</TableCell>
                 <TableCell align="center" sx={{ color: '#F4D03F99' }}>
                   {formatDuration(song.duration)}
