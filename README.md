@@ -1,68 +1,89 @@
 # AYAU Music Streaming Platform
 
-Plataforma de streaming de música con tracking preciso de reproducción para cálculo de regalías, panel administrativo completo y sistema de roles multi-nivel.
+Plataforma de streaming de música multi-tenant con tracking preciso de reproducción para cálculo de regalías, sincronización en tiempo real entre locales (Modo DJ), panel administrativo completo y sistema de roles multi-nivel.
 
-## 🎯 Stack Tecnológico
+> **MÚSICA, ON FIRE**
 
-- **Frontend**: React 19 + Vite + Material-UI (MUI)
-- **Backend**: Supabase (PostgreSQL + Auth + Storage + Realtime)
-- **Storage**: Supabase Storage (archivos de audio)
-- **Deploy**: Vercel
+---
 
-## 📊 Características Principales
+## Stack Tecnológico
+
+| Capa | Tecnología |
+|------|-----------|
+| Frontend | React 19 + Vite 6 + React Router 6 |
+| UI | Material-UI (MUI) 7 + Tailwind CSS 4 |
+| Backend | Supabase (PostgreSQL + Auth + Storage + Realtime) |
+| Edge Functions | Deno / TypeScript (Supabase Functions) |
+| Audio | HTML5 Audio API + Web Audio API |
+| Charts | Recharts |
+| Deploy | Vercel |
+
+---
+
+## Características Principales
+
+### Reproductor de Música
+- Controles de reproducción (play/pause, anterior/siguiente, seek, volumen)
+- **Visualizador de espectro** en tiempo real — 20 barras de frecuencia, 60fps via Web Audio API
+- **Resume Playback**: guarda posición en `localStorage`, reanuda desde donde se pausó
+- **Gapless Playback**: transición al siguiente track 2 segundos antes del fin
+- **Signed URLs con auto-renovación**: URLs privadas de Supabase Storage (TTL 1 hora, renueva a los 50 min)
+- **Prefetch de siguiente canción**: pre-genera URL y pre-carga audio 10 segundos antes de que sea necesario
+- **Cover Image Preload**: precarga imagen de portada, evita parpadeo al cambiar canción
+- Atajo de teclado: `Espacio` para play/pause
 
 ### Sistema de Regalías
 - Tracking exacto de segundos reproducidos por canción
-- Validación automática de streams (>30 segundos = válido)
+- Validación automática de streams (`stream_duration > 30s` = stream válido)
+- Soporte para códigos de identificación: **ISRC**, **ISWC**, **IPI**
 - Reportes mensuales, anuales y por país
-- Soporte para códigos ISRC, ISWC, IPI
+- Tabla `stream_analytics_monthly` pre-agregada para reportes rápidos
+- Distribución geográfica por `country_code`
 
-### Panel Administrativo
-- **Gestión de Playlists**: Crear, editar, eliminar y asignar canciones
-- **Gestión de Canciones**:
-  - Upload individual con extracción automática de metadata
-  - Carga bulk de múltiples archivos con análisis automático
-  - Asignación a múltiples playlists simultáneamente
-- **Gestión de Usuarios**: Crear usuarios con diferentes roles y permisos
-- **Analytics**: Dashboard con estadísticas de reproducción
-- **Diseño moderno**: Interfaz negra con dorado (#F4D03F) - AYAU branding
+### Arquitectura Multi-Tenant
+- Jerarquía: **Clientes (Empresas)** → **Locales (Venues)** → **Usuarios**
+- Tres modos de reproducción por cliente:
+  1. **Independiente**: cada local controla su música por separado
+  2. **Playlist Compartida**: comparten catálogo pero controlan independiente
+  3. **Sincronizado (Modo DJ)**: un DJ/Manager controla todos los locales en tiempo real
 
-### Sistema de Roles
+### Modo DJ (Reproducción Sincronizada)
+- Sincronización en tiempo real vía **Supabase Realtime** (WebSockets)
+- Un controlador (DJ) controla play/pause/seek/canción en todos los locales simultáneamente
+- Latencia de sincronización: ~100–500ms
+- Números de secuencia para prevenir actualizaciones fuera de orden
+- Panel `DJModePanel` con indicador de conexión y botón Tomar/Liberar control
+- `SyncStatusIndicator` muestra estado de sincronización a todos los usuarios
 
-#### 1. Admin (Administrador)
-- Acceso completo a todas las funciones
-- Gestión de usuarios (crear, editar, eliminar)
-- Gestión de playlists y canciones
-- Acceso a analytics y reportes
-- Único rol que puede eliminar playlists
+### Panel Administrativo (Rutas Protegidas)
+- **Dashboard**: estadísticas globales (playlists, canciones, usuarios, reproducciones)
+- **Gestión de Canciones**: upload individual o bulk con extracción automática de metadata ID3 (título, artista, duración, ISRC, cover art)
+- **Gestión de Playlists**: crear, editar, asignar canciones y portadas
+- **Gestión de Usuarios**: invitar usuarios por email, asignar roles y niveles de acceso, reenviar invitaciones
+- **Gestión de Cuentas**: administrar empresas/clientes, configurar modo de reproducción
+- **Gestión de Locales**: administrar venues por cliente, asignar managers
+- **Analytics**: dashboard con historial de reproducciones, top canciones, filtros por fecha/cuenta/local
 
-#### 2. Manager (Gestor)
-- Gestión de playlists (crear, editar - no eliminar)
-- Gestión de canciones (crear, editar, eliminar)
-- Acceso a analytics
-- **No puede**: Gestionar usuarios ni eliminar playlists
+### Sistema de Roles (RBAC)
 
-#### 3. User (Usuario Regular)
-- Acceso a la aplicación de streaming
-- Reproducción de playlists asignadas
-- Ver su propio perfil
+| Rol | Alcance | Playlists | Canciones | Usuarios | Cuentas/Locales |
+|-----|---------|-----------|-----------|----------|-----------------|
+| **Admin** | Sistema completo | CRUD + eliminar | CRUD | CRUD | CRUD |
+| **Manager** | Cuenta/Local | Crear + editar | Crear + editar | Solo ver | Solo ver |
+| **User** | Local asignado | Solo reproducir | Solo escuchar | — | — |
 
-#### 4. Client User (Usuario Cliente)
-- Usuario de cliente/local específico
-- Reproducción en modo controlado
+### Seguridad
+- **Row-Level Security (RLS)** en todas las tablas de PostgreSQL
+- JWT via Supabase Auth — clave anónima en frontend (nunca service role)
+- Signed URLs temporales para archivos de audio (sin acceso directo al storage)
+- Edge Functions validan rol del caller antes de ejecutar
+- Funciones SQL `is_admin()` / `is_manager_or_admin()` con `SECURITY DEFINER`
+- Reset de contraseña con tokens de un solo uso (TTL 24 horas)
+- Headers de seguridad en Vercel: CSP, X-Frame-Options, nosniff, Referrer-Policy
 
-### Multi-Tenant
-- Clientes → Locales → Usuarios
-- Control centralizado de reproducción (broadcasting)
-- Modo independiente por local
+---
 
-### Analytics
-- Total de segundos reproducidos por canción
-- Listeners únicos
-- Distribución geográfica
-- Reportes por cliente y por local
-
-## 🚀 Setup Local
+## Setup Local
 
 ### 1. Instalar dependencias
 
@@ -72,255 +93,227 @@ npm install
 
 ### 2. Configurar variables de entorno
 
-Copia `.env.example` a `.env.local` y completa los valores:
-
 ```bash
 cp .env.example .env.local
 ```
 
+Edita `.env.local` con tus credenciales de Supabase (Dashboard → Project Settings → API):
+
 ```env
-VITE_SUPABASE_URL=tu_supabase_url
-VITE_SUPABASE_ANON_KEY=tu_supabase_anon_key
+VITE_SUPABASE_URL=https://xxxx.supabase.co
+VITE_SUPABASE_ANON_KEY=eyJhbGci...
 ```
 
 ### 3. Configurar Base de Datos
 
-Ejecuta los siguientes scripts en el SQL Editor de Supabase **en este orden**:
+Ejecuta los scripts en el SQL Editor de Supabase **en este orden**:
 
-1. **`database/supabase-schema-reportes.sql`** - Schema principal de la base de datos
-2. **`database/setup-manager-permissions.sql`** - Sistema de roles y permisos RLS
-3. **`database/setup-create-user-function.sql`** - Trigger para auto-crear perfiles de usuario
-4. **`database/add-email-to-profiles.sql`** - Agregar y sincronizar email en user_profiles
-5. **`database/setup-storage.sql`** - Configurar bucket de storage para archivos de audio (si aplica)
+1. `database/supabase-schema-reportes.sql` — Schema principal
+2. `database/setup-manager-permissions.sql` — Roles y políticas RLS
+3. `database/setup-create-user-function.sql` — Trigger auto-creación de perfiles
+4. `database/add-email-to-profiles.sql` — Sincronización de email en user_profiles
+5. `database/setup-storage.sql` — Buckets de storage (songs, covers)
+6. `database/migrate-account-venue-management.sql` — Gestión de cuentas y locales
+7. `database/add-playback-mode.sql` — Configuración de modo de reproducción
 
-Opcionalmente, para diagnosticar problemas:
-- **`database/diagnose-and-fix-users.sql`** - Diagnóstico y corrección de usuarios
-- **`database/fix-user-profiles-policies.sql`** - Corregir políticas RLS
+Scripts opcionales para troubleshooting:
+- `database/diagnose-and-fix-users.sql`
+- `database/fix-user-profiles-policies.sql`
 
 ### 4. Ejecutar en desarrollo
 
 ```bash
 npm run dev
+# App en http://localhost:5173
 ```
 
 ### 5. Crear primer usuario admin
 
-1. Ir a la pestaña de Authentication en Supabase Dashboard
-2. Crear un nuevo usuario manualmente
-3. En el SQL Editor, ejecutar:
+1. Ve a Supabase Dashboard → Authentication → Users
+2. Crea un usuario manualmente
+3. Ejecuta en el SQL Editor:
 
 ```sql
--- Actualizar el rol del usuario a admin
 UPDATE user_profiles
 SET role = 'admin'
-WHERE id = 'id_del_usuario_creado';
+WHERE id = 'id-del-usuario';
 ```
 
-### 6. Login
-
-Abre la aplicación en `http://localhost:5173` y usa las credenciales del usuario admin creado.
-
-## 🎵 Características del Reproductor Mejorado
-
-### Visualizador de Espectro
-- Visualización en tiempo real del espectro de frecuencias
-- Barras de color dinámico (oro a naranja) que responden al audio
-- Renderizado optimizado con Device Pixel Ratio
-- Responsive y adapta a cambios de ventana
-
-### Resume Playback (Reanudar Reproducción)
-- Guarda automáticamente la posición de reproducción en `localStorage`
-- Al cargar la misma canción, continúa desde donde se pausó
-- Restaura posición después de 5 segundos reproducidos (evita ads)
-- Clave: `resume_<songId>`
-
-### Signed URLs con Auto-Renovación
-- Genera URLs firmadas temporales para Storage privado (TTL: 1 hora)
-- Caché en memoria para evitar regeneración innecesaria
-- Auto-renovación cada 50 minutos durante reproducción
-- Fallback a URLs públicas si bucket es público
-
-### Prefetch de Siguiente Canción
-- Pre-genera signed URL de la siguiente canción en la playlist
-- Reduce latencia al cambiar de canción
-- Carga metadata automáticamente
-
-### Cover Image Preload
-- Precarga imagen de portada antes de mostrar
-- Evita titileo/parpadeo al cambiar canción
-- Transición suave con opacity fade
-
-## 📁 Estructura del Proyecto
-
-```
-ayau-app/
-├── src/
-│   ├── components/
-│   │   ├── admin/
-│   │   │   ├── AdminDashboard.jsx    # Dashboard principal
-│   │   │   ├── AdminLayout.jsx       # Layout con sidebar
-│   │   │   ├── AnalyticsDashboard.jsx
-│   │   │   ├── PlaylistManager.jsx   # Gestión de playlists
-│   │   │   ├── ProtectedAdminRoute.jsx
-│   │   │   ├── SongManager.jsx       # Gestión de canciones + bulk upload
-│   │   │   └── UserManager.jsx       # Gestión de usuarios
-│   │   ├── Login.jsx                 # Página de login
-│   │   ├── MusicPlayer.jsx           # Reproductor con visualizador
-│   │   └── PlaylistSidebar.jsx       # Sidebar con playlists
-│   ├── context/
-│   │   └── PlayerContext.jsx         # Estado global + prefetch + resume
-│   ├── lib/
-│   │   └── supabase.js               # Cliente de Supabase
-│   ├── pages/
-│   │   └── HomePage.jsx              # Página principal
-│   ├── services/
-│   │   └── supabase-api.js           # API + getSignedUrl helper
-│   ├── App.jsx                       # Rutas y App principal
-│   └── main.jsx                      # Entry point
-├── database/
-│   ├── supabase-schema-reportes.sql  # Schema principal
-│   ├── setup-manager-permissions.sql # Sistema de roles
-│   ├── setup-create-user-function.sql
-│   ├── add-email-to-profiles.sql
-│   ├── setup-storage.sql
-│   ├── diagnose-and-fix-users.sql    # Troubleshooting
-│   ├── fix-user-profiles-policies.sql
-│   └── archive/                       # Scripts antiguos/debug
-├── PLAN-IMPLEMENTACION.md
-├── TRACKING-REPRODUCCION.md
-├── DATABASE-SETUP.md                 # Guía detallada de setup de BD
-└── package.json
-```
-
-## 🔐 Seguridad y RLS (Row Level Security)
-
-El sistema utiliza políticas RLS de PostgreSQL para asegurar el acceso a los datos:
-
-- **user_profiles**: Los admins ven todos los usuarios, otros solo su perfil
-- **playlists**: Los usuarios ven solo sus playlists asignadas vía RLS automático
-- **songs**: Acceso según playlists asignadas
-- **play_history**: Los usuarios solo ven su propio historial
-
-### Funciones de Seguridad
-
-```sql
--- Verifica si el usuario actual es admin
-public.is_admin()
-
--- Verifica si el usuario actual es admin o manager
-public.is_manager_or_admin()
-```
-
-Estas funciones usan `SECURITY DEFINER` para evitar recursión infinita en las políticas RLS.
-
-## 🎵 Funcionalidades Clave
-
-### Carga Bulk de Canciones
-
-1. Ir a Admin Panel → Canciones
-2. Click en "Carga Bulk"
-3. Seleccionar múltiples archivos MP3
-4. El sistema automáticamente:
-   - Extrae metadata de cada archivo (título, artista, duración, ISRC)
-   - Crea la canción en la base de datos
-   - Sube el archivo de audio a Supabase Storage
-   - Muestra progreso en tiempo real
-
-### Gestión de Usuarios
-
-Los administradores pueden:
-- Crear nuevos usuarios con email, nombre completo, contraseña y rol
-- Editar roles de usuarios existentes
-- Asignar permisos a playlists específicas (próximamente)
-
-### Tracking de Reproducción
-
-- El sistema registra automáticamente cada reproducción
-- Cuenta segundos exactos reproducidos
-- Identifica país del usuario
-- Calcula regalías por artista y canción
-
-## 📋 Roadmap
-
-El plan detallado de mejoras, deuda técnica y próximos pasos está en **[ROADMAP.md](ROADMAP.md)**.
-
-Resumen de estado:
-
-- [x] Fase 1–4: Setup, Admin Panel, Auth, Tracking
-- [ ] Fase 5: Testing (Vitest + Playwright)
-- [ ] Fase 6: Refactor de componentes grandes, logging estructurado
-
-## 📚 Documentación Adicional
-
-### 🔴 Documentación Principal (Recomendado Leer)
-
-- **[DOCUMENTATION-SUMMARY.md](DOCUMENTATION-SUMMARY.md)** - Resumen de toda la documentación (3,600+ líneas)
-- **[GETTING-STARTED-DOCS.md](GETTING-STARTED-DOCS.md)** - Guía de navegación personalizada por rol
-- **[EXECUTIVE-SUMMARY.md](EXECUTIVE-SUMMARY.md)** - Resumen ejecutivo de implementación
-
-### 🟡 Documentación Técnica (Especificaciones)
-
-- **[SYSTEM-OVERVIEW.md](SYSTEM-OVERVIEW.md)** - Arquitectura completa del sistema (751 líneas)
-- **[PLAYBACK-SYNC-SPECIFICATION.md](PLAYBACK-SYNC-SPECIFICATION.md)** - Sistema de sincronización de playback (669 líneas)
-- **[ARCHITECTURE-VISUAL.md](ARCHITECTURE-VISUAL.md)** - Diagramas y flujos visuales (685 líneas)
-
-### 🟢 Documentación de Implementación (Referencia)
-
-- **[DEMO-USERS-INVESTIGATION.md](DEMO-USERS-INVESTIGATION.md)** - Investigación sobre usuarios demo (450 líneas)
-- **[IMPLEMENTATION-COMPLETE.md](IMPLEMENTATION-COMPLETE.md)** - Cambios implementados
-- **[QUICK-START-USER-MANAGEMENT.md](QUICK-START-USER-MANAGEMENT.md)** - Guía rápida de gestión de usuarios
-- **[USER-MANAGEMENT-IMPROVEMENTS.md](USER-MANAGEMENT-IMPROVEMENTS.md)** - Plan original de mejoras
-- **[TESTING-CHECKLIST.md](TESTING-CHECKLIST.md)** - 40+ casos de prueba
-
-### 📁 Documentación Existente
-
-- [Plan de Implementación](PLAN-IMPLEMENTACION.md)
-- [Tracking de Reproducción](TRACKING-REPRODUCCION.md)
-- [Guía de Setup de Base de Datos](DATABASE-SETUP.md)
-- [Índice de Documentación](DOCUMENTATION-INDEX.md)
-
-## 🛠️ Scripts Disponibles
-
-```bash
-npm run dev      # Ejecutar en desarrollo
-npm run build    # Build para producción
-npm run preview  # Preview del build
-npm run lint     # Revisar código con ESLint
-```
-
-## 💰 Costos Estimados
-
-- Supabase: $0/mes (Free tier - hasta 500MB storage, 2GB bandwidth)
-- Vercel: $0/mes (Free tier)
-
-**Total**: $0/mes para desarrollo y testing inicial
-
-Para producción con más usuarios:
-- Supabase Pro: $25/mes (8GB storage, 100GB bandwidth)
-
-## 🎨 Diseño y Branding
-
-- **Color principal**: Negro (#000)
-- **Color acento**: Dorado AYAU (#F4D03F)
-- **Tipografía**: Roboto (Material-UI)
-- **Iconografía**: Material Icons
-- **Tema**: Dark mode con acentos dorados
-
-## 🐛 Troubleshooting
-
-### No puedo ver usuarios en el panel admin
-Ejecutar `diagnose-and-fix-users.sql` para sincronizar usuarios y verificar políticas RLS.
-
-### Error al subir archivos de audio
-Verificar que el bucket de storage esté configurado correctamente con `setup-storage.sql`.
-
-### Usuario no tiene permisos
-Verificar el rol del usuario en la tabla `user_profiles`. Solo admins y managers pueden acceder al panel admin.
-
-## 📞 Contacto y Soporte
-
-Para reportar bugs o solicitar features, contacta al equipo de desarrollo de AYAU.
+4. Abre `http://localhost:5173` y haz login
 
 ---
 
-Desarrollado por AYAU 🎵 - MÚSICA, ON FIRE
+## Estructura del Proyecto
+
+```
+ayau-app-streaming/
+├── src/
+│   ├── App.jsx                       # Router principal + auth state
+│   ├── main.jsx                      # Entry point
+│   ├── index.css                     # Estilos globales
+│   │
+│   ├── pages/
+│   │   ├── HomePage.jsx              # Interfaz principal de streaming
+│   │   └── PasswordReset.jsx         # Recuperación de contraseña (2 pasos)
+│   │
+│   ├── components/
+│   │   ├── MusicPlayer.jsx           # Reproductor + visualizador de espectro
+│   │   ├── DJModePanel.jsx           # Panel de control DJ (modo sincronizado)
+│   │   ├── SyncStatusIndicator.jsx   # Indicador de estado de sincronización
+│   │   ├── PlaylistSidebar.jsx       # Sidebar con lista de playlists
+│   │   ├── Login.jsx                 # Formulario de autenticación
+│   │   ├── Loading.jsx               # Componente de carga
+│   │   ├── ErrorBoundary.jsx         # Error boundary de React
+│   │   ├── ForcePasswordChangeModal.jsx
+│   │   │
+│   │   └── admin/                    # Rutas admin protegidas
+│   │       ├── AdminLayout.jsx       # Layout con sidebar de navegación
+│   │       ├── AdminDashboard.jsx    # Estadísticas globales
+│   │       ├── AccountManager.jsx    # Gestión de empresas/clientes
+│   │       ├── VenueManager.jsx      # Gestión de locales/venues
+│   │       ├── PlaylistManager.jsx   # Gestión de playlists
+│   │       ├── SongManager.jsx       # Gestión de canciones + bulk upload
+│   │       ├── UserManager.jsx       # Gestión de usuarios (solo admin)
+│   │       ├── AnalyticsDashboard.jsx # Analytics y reportes
+│   │       └── ProtectedAdminRoute.jsx # Guard de rutas admin
+│   │
+│   ├── context/
+│   │   ├── PlayerContext.jsx         # Estado global de reproducción + prefetch
+│   │   └── SyncPlaybackContext.jsx   # Estado de sincronización DJ Mode
+│   │
+│   ├── services/
+│   │   └── supabase-api.js           # Capa de API completa (Supabase)
+│   │
+│   ├── lib/
+│   │   └── supabase.js               # Inicialización del cliente Supabase
+│   │
+│   └── utils/
+│       ├── musicPlayer.js            # Helpers (formatTime, formatDuration)
+│       └── logger.js                 # Utilidades de logging
+│
+├── supabase/
+│   └── functions/
+│       └── invite-user/
+│           └── index.ts              # Edge Function: invite / resend / delete
+│
+├── database/                         # Scripts SQL de schema y migraciones
+│   ├── supabase-schema-reportes.sql  # Schema principal
+│   ├── setup-manager-permissions.sql # Sistema de roles RLS
+│   ├── setup-storage.sql             # Configuración de buckets
+│   ├── migrate-account-venue-management.sql
+│   ├── add-playback-mode.sql
+│   └── archive/                      # Scripts históricos / debug
+│
+├── docs/
+│   ├── technical/                    # Documentación técnica
+│   │   ├── SYSTEM-OVERVIEW.md
+│   │   ├── PLAYBACK-SYNC-SPECIFICATION.md
+│   │   ├── ARCHITECTURE-VISUAL.md
+│   │   └── DATABASE-SETUP.md
+│   └── guides/                       # Guías de uso y despliegue
+│       ├── DEPLOYMENT-GUIDE.md
+│       ├── GETTING-STARTED-DOCS.md
+│       ├── QUICK-START-USER-MANAGEMENT.md
+│       ├── TESTING-CHECKLIST.md
+│       └── QUICK-REFERENCE.md
+│
+├── ARCHITECTURE.md                   # Arquitectura técnica completa
+├── PROJECT-VALUATION.md              # Valoración del proyecto
+├── ROADMAP.md                        # Plan de mejoras y deuda técnica
+├── vercel.json                       # Configuración de despliegue + headers
+├── vite.config.js                    # Build + test config
+└── package.json
+```
+
+---
+
+## Rutas de la Aplicación
+
+```
+/                    →  HomePage (streaming para usuarios)
+/password-reset      →  PasswordReset (recuperación de contraseña)
+/admin               →  AdminDashboard (protegido: admin/manager)
+/admin/playlists     →  PlaylistManager
+/admin/songs         →  SongManager
+/admin/users         →  UserManager (solo admin)
+/admin/accounts      →  AccountManager
+/admin/venues        →  VenueManager
+/admin/analytics     →  AnalyticsDashboard
+```
+
+---
+
+## Scripts Disponibles
+
+```bash
+npm run dev          # Servidor de desarrollo (http://localhost:5173)
+npm run build        # Build de producción → dist/
+npm run preview      # Preview del build de producción
+npm run lint         # Revisión con ESLint
+npm run test         # Tests en modo watch (Vitest)
+npm run test:run     # Ejecución única de tests
+npm run test:coverage # Reporte de cobertura
+```
+
+---
+
+## Despliegue (Producción)
+
+El frontend se despliega automáticamente en **Vercel** al hacer push a `main`.
+
+Variables de entorno requeridas en Vercel:
+- `VITE_SUPABASE_URL`
+- `VITE_SUPABASE_ANON_KEY`
+
+Ver [docs/guides/DEPLOYMENT-GUIDE.md](docs/guides/DEPLOYMENT-GUIDE.md) para guía completa.
+
+---
+
+## Costos Estimados
+
+| Servicio | Plan Gratuito | Plan Producción |
+|----------|--------------|-----------------|
+| Supabase | $0/mes (500MB storage, 2GB bandwidth) | $25/mes (8GB, 100GB) |
+| Vercel | $0/mes | $20/mes (Pro) |
+
+---
+
+## Diseño y Branding
+
+- **Color principal**: Negro (`#000`)
+- **Color acento**: Dorado AYAU (`#F4D03F`)
+- **Tipografía**: Roboto (Material-UI)
+- **Iconografía**: Material Icons + Lucide React
+- **Tema**: Dark mode con acentos dorados
+
+---
+
+## Troubleshooting
+
+**No aparecen usuarios en el panel admin**
+Ejecuta `database/diagnose-and-fix-users.sql` para sincronizar perfiles y verificar políticas RLS.
+
+**Error al subir archivos de audio**
+Verifica que los buckets estén configurados con `database/setup-storage.sql`.
+
+**Usuario sin permisos al panel admin**
+Verifica el campo `role` en la tabla `user_profiles`. Solo `admin` y `manager` pueden acceder.
+
+**Modo DJ no sincroniza**
+Verifica que el cliente tenga `playback_mode = 'synchronized'` y que exista una sesión activa en `playback_sessions`.
+
+---
+
+## Documentación Adicional
+
+- [ARCHITECTURE.md](ARCHITECTURE.md) — Arquitectura técnica completa del sistema
+- [PROJECT-VALUATION.md](PROJECT-VALUATION.md) — Valoración del proyecto
+- [ROADMAP.md](ROADMAP.md) — Plan de mejoras y próximos pasos
+- [docs/technical/SYSTEM-OVERVIEW.md](docs/technical/SYSTEM-OVERVIEW.md) — Visión general del sistema
+- [docs/technical/PLAYBACK-SYNC-SPECIFICATION.md](docs/technical/PLAYBACK-SYNC-SPECIFICATION.md) — Especificación del sistema de sincronización
+- [docs/guides/DEPLOYMENT-GUIDE.md](docs/guides/DEPLOYMENT-GUIDE.md) — Guía de despliegue a producción
+- [docs/guides/TESTING-CHECKLIST.md](docs/guides/TESTING-CHECKLIST.md) — 40+ casos de prueba
+
+---
+
+Desarrollado por AYAU — MÚSICA, ON FIRE
