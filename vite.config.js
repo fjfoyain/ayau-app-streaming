@@ -1,11 +1,18 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
+import { sentryVitePlugin } from '@sentry/vite-plugin'
 
 export default defineConfig({
   plugins: [
     react(),
-    tailwindcss()
+    tailwindcss(),
+    sentryVitePlugin({
+      org: process.env.SENTRY_ORG,
+      project: process.env.SENTRY_PROJECT,
+      authToken: process.env.SENTRY_AUTH_TOKEN,
+      silent: true,
+    }),
   ],
   server: {
     port: 5173,
@@ -15,6 +22,7 @@ export default defineConfig({
     include: ['music-metadata'],
   },
   build: {
+    sourcemap: true,
     rollupOptions: {
       output: {
         manualChunks(id) {
