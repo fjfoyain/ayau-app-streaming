@@ -1725,5 +1725,3 @@ export const sendToRemoteControlChannel = async (channel, event, payload = {}) =
     payload,
   })
 }
-
-}
