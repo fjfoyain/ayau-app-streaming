@@ -1334,7 +1334,7 @@ export const getUsersForOwnerSelection = async () => {
     .from('user_profiles')
     .select('id, full_name, email, role')
     .eq('is_active', true)
-    .in('role', ['manager', 'admin'])
+    .in('role', ['admin', 'manager', 'account_user'])
     .order('full_name')
 
   if (error) {
