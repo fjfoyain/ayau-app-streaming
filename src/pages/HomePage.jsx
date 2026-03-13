@@ -14,6 +14,7 @@ import QueueMusicIcon from '@mui/icons-material/QueueMusic';
 import MusicNoteIcon from '@mui/icons-material/MusicNote';
 import CircularProgress from '@mui/material/CircularProgress';
 import { usePlayer } from "../context/PlayerContext";
+import { useRemoteControl } from "../context/RemoteControlContext";
 import DJModePanel from "../components/DJModePanel";
 import ayauLogo from "../assets/ayau-wordmark.png";
 
@@ -30,6 +31,7 @@ const shuffleArray = (array) => {
 export default function HomePage({ session }) {
   const navigate = useNavigate();
   const { state, dispatch } = usePlayer();
+  const { isRemote, sendRemoteCommand } = useRemoteControl() ?? {};
   const [playlists, setPlaylists] = useState([]);
   const [loadingPlaylists, setLoadingPlaylists] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
@@ -111,11 +113,19 @@ export default function HomePage({ session }) {
 
       const shuffledSongs = shuffleArray(songs);
 
-      dispatch({
-        type: "PLAY_SONG",
-        payload: shuffledSongs[0],
-        playlistInfo: { playlist: shuffledSongs, songIndex: 0 }
-      });
+      if (isRemote) {
+        // Remote: send song + playlist to Active Player via Broadcast
+        sendRemoteCommand('REMOTE_SET_SONG', {
+          song: shuffledSongs[0],
+          playlistInfo: { playlist: shuffledSongs, songIndex: 0 },
+        });
+      } else {
+        dispatch({
+          type: "PLAY_SONG",
+          payload: shuffledSongs[0],
+          playlistInfo: { playlist: shuffledSongs, songIndex: 0 }
+        });
+      }
     } catch (error) {
       console.error("Error loading playlist:", error);
       alert('Error al cargar la playlist');

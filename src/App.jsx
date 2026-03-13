@@ -16,6 +16,7 @@ import AnalyticsDashboard from "./components/admin/AnalyticsDashboard";
 import ProtectedAdminRoute, { AdminOnlyRoute } from "./components/admin/ProtectedAdminRoute";
 import { PlayerProvider } from "./context/PlayerContext";
 import { SyncPlaybackProvider } from "./context/SyncPlaybackContext";
+import { RemoteControlProvider } from "./context/RemoteControlContext";
 import ErrorBoundary from "./components/ErrorBoundary";
 
 export default function App() {
@@ -51,7 +52,7 @@ export default function App() {
         {/* Authentication required routes */}
         {session ? (
           <>
-            <Route path="/" element={<PlayerProvider><SyncPlaybackProvider><HomePage session={session} /></SyncPlaybackProvider></PlayerProvider>} />
+            <Route path="/" element={<PlayerProvider><SyncPlaybackProvider><RemoteControlProvider><HomePage session={session} /></RemoteControlProvider></SyncPlaybackProvider></PlayerProvider>} />
 
             {/* Admin Routes (protected) */}
             <Route
@@ -59,9 +60,11 @@ export default function App() {
               element={
                 <PlayerProvider>
                   <SyncPlaybackProvider>
-                    <ProtectedAdminRoute>
-                      <AdminLayout />
-                    </ProtectedAdminRoute>
+                    <RemoteControlProvider>
+                      <ProtectedAdminRoute>
+                        <AdminLayout />
+                      </ProtectedAdminRoute>
+                    </RemoteControlProvider>
                   </SyncPlaybackProvider>
                 </PlayerProvider>
               }

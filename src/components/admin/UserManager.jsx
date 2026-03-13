@@ -127,10 +127,11 @@ export default function UserManager() {
 
     setSaving(true);
     try {
-      await updateUserProfile(selectedUser.id, { 
+      await updateUserProfile(selectedUser.id, {
         role: selectedRole,
         exclude_from_analytics: selectedUser.exclude_from_analytics,
-        is_active: selectedUser.is_active
+        is_active: selectedUser.is_active,
+        remote_control_enabled: selectedUser.remote_control_enabled ?? false,
       });
       alert('Usuario actualizado exitosamente');
       handleCloseRoleDialog();
@@ -650,6 +651,43 @@ export default function UserManager() {
               width: '100%',
               backgroundColor: selectedUser?.is_active ? '#4CAF5011' : '#f4433622',
               border: `1px solid ${selectedUser?.is_active ? '#4CAF5044' : '#f4433644'}`,
+              borderRadius: '8px',
+            }}
+          />
+
+          {/* Remote Control Toggle */}
+          <FormControlLabel
+            control={
+              <Checkbox
+                checked={!!selectedUser?.remote_control_enabled}
+                onChange={(e) => {
+                  setSelectedUser({ ...selectedUser, remote_control_enabled: e.target.checked });
+                }}
+                disabled={saving}
+                sx={{
+                  color: '#F4D03F',
+                  '&.Mui-checked': { color: '#F4D03F' },
+                }}
+              />
+            }
+            label={
+              <Box>
+                <Typography sx={{ color: '#F4D03F', fontWeight: 'bold' }}>
+                  Control Remoto
+                </Typography>
+                <Typography variant="caption" sx={{ color: '#F4D03F99' }}>
+                  {selectedUser?.remote_control_enabled
+                    ? 'El usuario puede usar dos dispositivos (Reproductor Activo + Control Remoto)'
+                    : 'Activar para permitir control desde un segundo dispositivo'}
+                </Typography>
+              </Box>
+            }
+            sx={{
+              mb: 2,
+              p: 2,
+              width: '100%',
+              backgroundColor: selectedUser?.remote_control_enabled ? '#F4D03F11' : '#ffffff08',
+              border: `1px solid ${selectedUser?.remote_control_enabled ? '#F4D03F44' : '#ffffff22'}`,
               borderRadius: '8px',
             }}
           />

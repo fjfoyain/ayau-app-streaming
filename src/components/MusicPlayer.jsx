@@ -13,9 +13,11 @@ import VolumeDownRounded from "@mui/icons-material/VolumeDownRounded";
 import IconButton from "@mui/material/IconButton";
 import { formatTime } from '../utils/musicPlayer';
 import { usePlayer } from "../context/PlayerContext";
+import { useRemoteControl } from "../context/RemoteControlContext";
 import { supabase } from '../lib/supabase';
 import { recordPlay } from '../services/supabase-api';
 import SyncStatusIndicator from './SyncStatusIndicator';
+import RemoteControlBanner from './RemoteControlBanner';
 
 // Pre-set bar heights give each bar its own base height for visual variety
 const EQ_HEIGHTS = [40, 70, 55, 85, 60, 45, 75, 50, 90, 38, 72, 48, 65, 42, 80, 55, 44, 68, 50, 62];
@@ -28,6 +30,7 @@ let _dataArray = null;
 export default function MusicPlayer() {
   const { state, dispatch } = usePlayer();
   const audio = state.audio;
+  const { isRemote, sendRemoteCommand } = useRemoteControl() ?? {};
 
   const [volume, setVolume] = useState(audio.volume || 0.5);
   const [currentTime, setCurrentTime] = useState(audio.currentTime);
@@ -221,10 +224,18 @@ export default function MusicPlayer() {
 
   const handlePlayPause = () => {
     if (!state.currentSong) return;
-    dispatch({ type: "TOGGLE_PLAY_PAUSE" });
+    if (isRemote) {
+      sendRemoteCommand('REMOTE_PLAY_PAUSE');
+    } else {
+      dispatch({ type: "TOGGLE_PLAY_PAUSE" });
+    }
   };
 
   const handlePrevious = () => {
+    if (isRemote) {
+      sendRemoteCommand('REMOTE_PREV');
+      return;
+    }
     const { playlist, songIndex } = state.currentPlaylist || {};
     if (!playlist || songIndex === undefined || songIndex === -1) return;
     const prevIndex = (songIndex - 1 + playlist.length) % playlist.length;
@@ -232,6 +243,10 @@ export default function MusicPlayer() {
   };
 
   const handleNext = () => {
+    if (isRemote) {
+      sendRemoteCommand('REMOTE_NEXT');
+      return;
+    }
     const { playlist, songIndex } = state.currentPlaylist || {};
     if (!playlist || songIndex === undefined || songIndex === -1) return;
     const nextIndex = (songIndex + 1) % playlist.length;
@@ -253,11 +268,15 @@ export default function MusicPlayer() {
       if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || e.target.isContentEditable) return;
       e.preventDefault();
       if (!state.currentSong) return;
-      dispatch({ type: 'TOGGLE_PLAY_PAUSE' });
+      if (isRemote) {
+        sendRemoteCommand('REMOTE_PLAY_PAUSE');
+      } else {
+        dispatch({ type: 'TOGGLE_PLAY_PAUSE' });
+      }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [state.currentSong, dispatch]);
+  }, [state.currentSong, dispatch, isRemote, sendRemoteCommand]);
 
   const handleVolumeChange = (e) => {
     const newVolume = parseFloat(e.target.value);
@@ -268,7 +287,11 @@ export default function MusicPlayer() {
   const handleSeek = (e) => {
     const seekTime = parseFloat(e.target.value);
     setCurrentTime(seekTime);
-    audio.currentTime = seekTime;
+    if (isRemote) {
+      sendRemoteCommand('REMOTE_SEEK', { position: seekTime });
+    } else {
+      audio.currentTime = seekTime;
+    }
   };
 
   const coverImageSrc = useMemo(() => {
@@ -320,6 +343,8 @@ export default function MusicPlayer() {
 
   return (
     <footer className="bg-black text-ayau-gold flex flex-col border-t-2 border-ayau-gold">
+      {/* Remote Control / Active Player banner */}
+      <RemoteControlBanner />
       {/* Seek bar row with times on each side */}
       <div className="flex items-center gap-3 px-6 lg:px-10 pt-2">
         <TinyText sx={{ minWidth: 36, textAlign: 'right' }}>{formatTime(currentTime)}</TinyText>

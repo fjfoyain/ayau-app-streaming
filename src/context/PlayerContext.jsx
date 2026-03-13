@@ -109,6 +109,17 @@ const playerReducer = (state, action) => {
     case "CLEAR_SYNC_FLAG":
       return { ...state, _syncApplied: false };
 
+    case "REMOTE_APPLY_STATE":
+      // Apply state from Active Player broadcast — updates UI on Remote devices.
+      // Audio is already gated (audio.play is no-op on Remote) so no sound plays.
+      return {
+        ...state,
+        currentSong: action.payload.song ?? state.currentSong,
+        isPlaying: action.payload.isPlaying ?? state.isPlaying,
+        currentPlaylist: action.payload.playlistInfo ?? state.currentPlaylist,
+        _syncApplied: true,
+      };
+
     default:
       return state;
   }

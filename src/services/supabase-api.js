@@ -1594,3 +1594,136 @@ export const getAllPlaylistsForAssignment = async () => {
   if (error) throw error
   return data
 }
+
+// ================================================
+// REMOTE CONTROL / REPRODUCTOR ACTIVO
+// ================================================
+
+/**
+ * Obtener la sesión de dispositivo actual de un usuario
+ */
+export const getUserDeviceSession = async (userId, deviceId) => {
+  const { data, error } = await supabase
+    .from('user_device_sessions')
+    .select('*')
+    .eq('user_id', userId)
+    .eq('device_id', deviceId)
+    .single()
+
+  if (error && error.code !== 'PGRST116') {
+    console.error('Error fetching device session:', error)
+    throw error
+  }
+  return data || null
+}
+
+/**
+ * Obtener el reproductor activo actual para un usuario
+ */
+export const getActivePlayerForUser = async (userId) => {
+  const { data, error } = await supabase
+    .from('user_device_sessions')
+    .select('*')
+    .eq('user_id', userId)
+    .eq('role', 'active_player')
+    .single()
+
+  if (error && error.code !== 'PGRST116') {
+    console.error('Error fetching active player:', error)
+    throw error
+  }
+  return data || null
+}
+
+/**
+ * Registrar sesión de dispositivo (upsert)
+ */
+export const registerDeviceSession = async (userId, deviceId, role) => {
+  const { data, error } = await supabase
+    .from('user_device_sessions')
+    .upsert(
+      { user_id: userId, device_id: deviceId, role, last_heartbeat: new Date().toISOString() },
+      { onConflict: 'user_id,device_id' }
+    )
+    .select()
+    .single()
+
+  if (error) {
+    console.error('Error registering device session:', error)
+    throw error
+  }
+  return data
+}
+
+/**
+ * Reclamar el rol de reproductor activo (atómico, maneja race conditions)
+ * Retorna true si el claim fue exitoso, false si hay otro AP activo no obsoleto
+ */
+export const claimActivePlayer = async (userId, deviceId) => {
+  const { data, error } = await supabase
+    .rpc('claim_active_player', { p_user_id: userId, p_device_id: deviceId })
+
+  if (error) {
+    console.error('Error claiming active player:', error)
+    throw error
+  }
+  return data
+}
+
+/**
+ * Liberar la sesión de dispositivo (al cerrar o hacer logout)
+ */
+export const releaseDeviceSession = async (userId, deviceId) => {
+  const { error } = await supabase
+    .rpc('release_active_player', { p_user_id: userId, p_device_id: deviceId })
+
+  if (error) {
+    console.warn('Error releasing device session:', error)
+    // Non-critical: don't throw, just log
+  }
+}
+
+/**
+ * Actualizar heartbeat del reproductor activo
+ */
+export const heartbeatActivePlayer = async (userId, deviceId) => {
+  const { error } = await supabase
+    .from('user_device_sessions')
+    .update({ last_heartbeat: new Date().toISOString() })
+    .eq('user_id', userId)
+    .eq('device_id', deviceId)
+
+  if (error) {
+    console.warn('Heartbeat update failed:', error)
+  }
+}
+
+/**
+ * Suscribirse al canal de control remoto vía Supabase Realtime Broadcast.
+ * Retorna el canal para poder hacer unsubscribe.
+ * callbacks: { [eventName]: (payload) => void }
+ */
+export const subscribeToRemoteControlChannel = (userId, callbacks) => {
+  const channel = supabase
+    .channel(`user-remote-${userId}`)
+    .on('broadcast', { event: '*' }, (payload) => {
+      const handler = callbacks[payload.event]
+      if (handler) handler(payload.payload)
+    })
+    .subscribe()
+
+  return channel
+}
+
+/**
+ * Enviar un comando/evento al canal de control remoto
+ */
+export const sendToRemoteControlChannel = async (channel, event, payload = {}) => {
+  await channel.send({
+    type: 'broadcast',
+    event,
+    payload,
+  })
+}
+
+}
