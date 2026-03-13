@@ -1725,3 +1725,21 @@ export const sendToRemoteControlChannel = async (channel, event, payload = {}) =
     payload,
   })
 }
+
+/**
+ * Insertar múltiples canciones en una playlist en una sola operación.
+ * Canciones ya presentes se ignoran silenciosamente (ignoreDuplicates).
+ */
+export const bulkAddSongsToPlaylist = async (playlistId, songIds, startPosition) => {
+  const rows = songIds.map((songId, i) => ({
+    playlist_id: playlistId,
+    song_id: songId,
+    position: startPosition + i,
+  }));
+
+  const { error } = await supabase
+    .from('playlist_songs')
+    .upsert(rows, { onConflict: 'playlist_id,song_id', ignoreDuplicates: true });
+
+  if (error) throw error;
+};

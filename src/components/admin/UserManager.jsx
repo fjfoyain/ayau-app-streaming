@@ -693,51 +693,86 @@ export default function UserManager() {
           />
 
           {/* Manual Email Verification */}
-          {!selectedUser?.email_confirmed_at && !selectedUser?.email_verified_manually && (
+          {!selectedUser?.email_confirmed_at && (
             <Paper
               sx={{
                 p: 2,
-                backgroundColor: '#FF980022',
-                border: '1px solid #FF980044',
+                backgroundColor: selectedUser?.email_verified_manually ? '#2196F311' : '#FF980022',
+                border: `1px solid ${selectedUser?.email_verified_manually ? '#2196F344' : '#FF980044'}`,
                 borderRadius: '8px',
                 mb: 2,
               }}
             >
-              <Typography sx={{ color: '#FF9800', mb: 1, fontWeight: 'bold' }}>
-                Email No Verificado
+              <Typography sx={{ color: selectedUser?.email_verified_manually ? '#2196F3' : '#FF9800', mb: 1, fontWeight: 'bold' }}>
+                {selectedUser?.email_verified_manually ? 'Email Verificado Manualmente' : 'Email No Verificado'}
               </Typography>
               <Typography variant="caption" sx={{ color: '#F4D03F99', display: 'block', mb: 2 }}>
-                El usuario no ha confirmado su email. Puedes verificarlo manualmente.
+                {selectedUser?.email_verified_manually
+                  ? 'Este email fue verificado manualmente por un administrador.'
+                  : 'El usuario no ha confirmado su email. Puedes verificarlo manualmente.'}
               </Typography>
-              <Button
-                variant="outlined"
-                size="small"
-                disabled={saving}
-                onClick={async () => {
-                  if (!confirm('¿Verificar manualmente el email de este usuario?')) return;
-                  setSaving(true);
-                  try {
-                    await updateUserProfile(selectedUser.id, {
-                      email_verified_manually: true,
-                      email_verified_manually_at: new Date().toISOString(),
-                    });
-                    setSelectedUser({ ...selectedUser, email_verified_manually: true });
-                    fetchData();
-                    alert('Email verificado manualmente');
-                  } catch (err) {
-                    alert('Error al verificar email: ' + err.message);
-                  } finally {
-                    setSaving(false);
-                  }
-                }}
-                sx={{
-                  borderColor: '#FF9800',
-                  color: '#FF9800',
-                  '&:hover': { backgroundColor: '#FF980022' },
-                }}
-              >
-                Verificar Email Manualmente
-              </Button>
+              {!selectedUser?.email_verified_manually ? (
+                <Button
+                  variant="outlined"
+                  size="small"
+                  disabled={saving}
+                  onClick={async () => {
+                    if (!confirm('¿Verificar manualmente el email de este usuario? Esto también lo marcará como activo.')) return;
+                    setSaving(true);
+                    try {
+                      await updateUserProfile(selectedUser.id, {
+                        email_verified_manually: true,
+                        email_verified_manually_at: new Date().toISOString(),
+                        is_active: true,
+                      });
+                      setSelectedUser({ ...selectedUser, email_verified_manually: true, is_active: true });
+                      fetchData();
+                      alert('Email verificado y usuario activado');
+                    } catch (err) {
+                      alert('Error al verificar email: ' + err.message);
+                    } finally {
+                      setSaving(false);
+                    }
+                  }}
+                  sx={{
+                    borderColor: '#FF9800',
+                    color: '#FF9800',
+                    '&:hover': { backgroundColor: '#FF980022' },
+                  }}
+                >
+                  Verificar Email Manualmente
+                </Button>
+              ) : (
+                <Button
+                  variant="outlined"
+                  size="small"
+                  disabled={saving}
+                  onClick={async () => {
+                    if (!confirm('¿Quitar la verificación manual del email?')) return;
+                    setSaving(true);
+                    try {
+                      await updateUserProfile(selectedUser.id, {
+                        email_verified_manually: false,
+                        email_verified_manually_at: null,
+                      });
+                      setSelectedUser({ ...selectedUser, email_verified_manually: false });
+                      fetchData();
+                      alert('Verificación manual removida');
+                    } catch (err) {
+                      alert('Error: ' + err.message);
+                    } finally {
+                      setSaving(false);
+                    }
+                  }}
+                  sx={{
+                    borderColor: '#2196F3',
+                    color: '#2196F3',
+                    '&:hover': { backgroundColor: '#2196F311' },
+                  }}
+                >
+                  Quitar Verificación Manual
+                </Button>
+              )}
             </Paper>
           )}
         </DialogContent>

@@ -18,13 +18,15 @@ import TextField from '@mui/material/TextField';
 import Switch from '@mui/material/Switch';
 import FormControlLabel from '@mui/material/FormControlLabel';
 import CircularProgress from '@mui/material/CircularProgress';
+import Tooltip from '@mui/material/Tooltip';
 import AddIcon from '@mui/icons-material/Add';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import CancelIcon from '@mui/icons-material/Cancel';
 import CloudUploadIcon from '@mui/icons-material/CloudUpload';
-import { getUserPlaylists, createPlaylist, updatePlaylist, deletePlaylist, uploadPlaylistCover, deleteStorageFile } from '../../services/supabase-api';
+import ContentCopyIcon from '@mui/icons-material/ContentCopy';
+import { getUserPlaylists, createPlaylist, updatePlaylist, deletePlaylist, uploadPlaylistCover, deleteStorageFile, getPlaylistSongs, bulkAddSongsToPlaylist } from '../../services/supabase-api';
 
 export default function PlaylistManager() {
   const [playlists, setPlaylists] = useState([]);
@@ -41,6 +43,13 @@ export default function PlaylistManager() {
   const [coverPreview, setCoverPreview] = useState(null);
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef(null);
+  const dupFileInputRef = useRef(null);
+  const [duplicateDialogOpen, setDuplicateDialogOpen] = useState(false);
+  const [duplicatingPlaylist, setDuplicatingPlaylist] = useState(null);
+  const [dupName, setDupName] = useState('');
+  const [dupCoverFile, setDupCoverFile] = useState(null);
+  const [dupCoverPreview, setDupCoverPreview] = useState(null);
+  const [dupKeepCover, setDupKeepCover] = useState(true);
 
   useEffect(() => {
     fetchPlaylists();
@@ -124,6 +133,69 @@ export default function PlaylistManager() {
     } catch (error) {
       console.error('Error saving playlist:', error);
       alert('Error al guardar la playlist');
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleOpenDuplicateDialog = (playlist) => {
+    setDuplicatingPlaylist(playlist);
+    setDupName(`Copia de ${playlist.name}`);
+    setDupKeepCover(true);
+    setDupCoverFile(null);
+    const preview = playlist.cover_image_url && /^https?:\/\//i.test(playlist.cover_image_url)
+      ? playlist.cover_image_url : null;
+    setDupCoverPreview(preview);
+    setDuplicateDialogOpen(true);
+  };
+
+  const handleCloseDuplicateDialog = () => {
+    setDuplicateDialogOpen(false);
+    setDuplicatingPlaylist(null);
+    setDupCoverFile(null);
+    setDupCoverPreview(null);
+  };
+
+  const handleDupCoverFileChange = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    setDupCoverFile(file);
+    setDupCoverPreview(URL.createObjectURL(file));
+    setDupKeepCover(false);
+  };
+
+  const handleDuplicatePlaylist = async () => {
+    if (!dupName.trim() || !duplicatingPlaylist) return;
+    setUploading(true);
+    try {
+      // 1. Create new playlist (same description and visibility, new name)
+      const newPlaylist = await createPlaylist({
+        name: dupName.trim(),
+        description: duplicatingPlaylist.description || '',
+        cover_image_url: '',
+        is_public: duplicatingPlaylist.is_public,
+      });
+
+      // 2. Handle cover image
+      if (dupCoverFile) {
+        const coverPath = await uploadPlaylistCover(dupCoverFile, newPlaylist.id);
+        await updatePlaylist(newPlaylist.id, { cover_image_url: coverPath });
+      } else if (dupKeepCover && duplicatingPlaylist.cover_image_url) {
+        await updatePlaylist(newPlaylist.id, { cover_image_url: duplicatingPlaylist.cover_image_url });
+      }
+
+      // 3. Copy songs in order
+      const sourceSongs = await getPlaylistSongs(duplicatingPlaylist.id);
+      if (sourceSongs.length > 0) {
+        const songIds = sourceSongs.map(s => s.id);
+        await bulkAddSongsToPlaylist(newPlaylist.id, songIds, 1);
+      }
+
+      handleCloseDuplicateDialog();
+      fetchPlaylists();
+    } catch (error) {
+      console.error('Error duplicating playlist:', error);
+      alert('Error al duplicar la playlist: ' + error.message);
     } finally {
       setUploading(false);
     }
@@ -225,6 +297,11 @@ export default function PlaylistManager() {
                   )}
                 </TableCell>
                 <TableCell align="center">
+                  <Tooltip title="Duplicar playlist">
+                    <IconButton onClick={() => handleOpenDuplicateDialog(playlist)} sx={{ color: '#4CAF50' }}>
+                      <ContentCopyIcon />
+                    </IconButton>
+                  </Tooltip>
                   <IconButton onClick={() => handleOpenDialog(playlist)} sx={{ color: '#F4D03F' }}>
                     <EditIcon />
                   </IconButton>
@@ -361,6 +438,124 @@ export default function PlaylistManager() {
             }}
           >
             {uploading ? <CircularProgress size={20} sx={{ color: '#000' }} /> : (editingPlaylist ? 'Guardar' : 'Crear')}
+          </Button>
+        </DialogActions>
+      </Dialog>
+      {/* Dialog for Duplicate Playlist */}
+      <Dialog
+        open={duplicateDialogOpen}
+        onClose={uploading ? undefined : handleCloseDuplicateDialog}
+        maxWidth="sm"
+        fullWidth
+        PaperProps={{
+          sx: {
+            backgroundColor: '#000',
+            border: '2px solid #F4D03F',
+            borderRadius: '16px',
+          },
+        }}
+      >
+        <DialogTitle sx={{ color: '#F4D03F', fontWeight: 'bold' }}>
+          Duplicar Playlist
+        </DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" sx={{ color: '#F4D03F99', mb: 2 }}>
+            Crea una copia de <strong style={{ color: '#F4D03F' }}>{duplicatingPlaylist?.name}</strong> con todas sus canciones.
+          </Typography>
+
+          <TextField
+            autoFocus
+            margin="dense"
+            label="Nombre de la nueva playlist"
+            fullWidth
+            variant="outlined"
+            value={dupName}
+            onChange={(e) => setDupName(e.target.value)}
+            sx={inputSx}
+          />
+
+          {/* Cover image section */}
+          <Box sx={{ mb: 2 }}>
+            <Typography variant="caption" sx={{ color: '#F4D03F99', display: 'block', mb: 1 }}>
+              Imagen de Portada
+            </Typography>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
+              {dupCoverPreview && (
+                <Box
+                  component="img"
+                  src={dupCoverPreview}
+                  alt="preview"
+                  sx={{
+                    width: 80,
+                    height: 80,
+                    objectFit: 'cover',
+                    borderRadius: '8px',
+                    border: '1px solid #F4D03F44',
+                  }}
+                />
+              )}
+              {!dupCoverPreview && duplicatingPlaylist?.cover_image_url && dupKeepCover && (
+                <Typography variant="caption" sx={{ color: '#4CAF50' }}>
+                  Usando imagen original
+                </Typography>
+              )}
+              <Button
+                variant="outlined"
+                startIcon={<CloudUploadIcon />}
+                onClick={() => dupFileInputRef.current?.click()}
+                disabled={uploading}
+                sx={{
+                  color: '#F4D03F',
+                  borderColor: '#F4D03F44',
+                  fontSize: '0.8rem',
+                  '&:hover': { borderColor: '#F4D03F', backgroundColor: '#F4D03F11' },
+                }}
+              >
+                {dupCoverFile ? 'Cambiar imagen' : 'Subir nueva imagen'}
+              </Button>
+              {dupCoverFile && (
+                <Button
+                  size="small"
+                  onClick={() => {
+                    setDupCoverFile(null);
+                    setDupCoverPreview(
+                      duplicatingPlaylist?.cover_image_url && /^https?:\/\//i.test(duplicatingPlaylist.cover_image_url)
+                        ? duplicatingPlaylist.cover_image_url : null
+                    );
+                    setDupKeepCover(true);
+                  }}
+                  sx={{ color: '#F4D03F66', fontSize: '0.8rem', '&:hover': { color: '#F4D03F' } }}
+                >
+                  Usar original
+                </Button>
+              )}
+            </Box>
+            <input
+              ref={dupFileInputRef}
+              type="file"
+              accept="image/*"
+              style={{ display: 'none' }}
+              onChange={handleDupCoverFileChange}
+            />
+          </Box>
+        </DialogContent>
+        <DialogActions sx={{ p: 3 }}>
+          <Button onClick={handleCloseDuplicateDialog} sx={{ color: '#F4D03F' }} disabled={uploading}>
+            Cancelar
+          </Button>
+          <Button
+            onClick={handleDuplicatePlaylist}
+            variant="contained"
+            disabled={uploading || !dupName.trim()}
+            sx={{
+              backgroundColor: '#F4D03F',
+              color: '#000',
+              fontWeight: 'bold',
+              '&:hover': { backgroundColor: '#F4D03Fdd' },
+              '&:disabled': { backgroundColor: '#F4D03F44', color: '#00000088' },
+            }}
+          >
+            {uploading ? <CircularProgress size={20} sx={{ color: '#000' }} /> : 'Duplicar'}
           </Button>
         </DialogActions>
       </Dialog>

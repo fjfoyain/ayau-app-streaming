@@ -45,6 +45,7 @@ import {
   uploadAudioFile,
   uploadCoverImage,
   getSongPlaylists,
+  bulkAddSongsToPlaylist,
 } from '../../services/supabase-api';
 
 export default function SongManager() {
@@ -70,6 +71,10 @@ export default function SongManager() {
   const [bulkFiles, setBulkFiles] = useState([]);
   const [bulkProgress, setBulkProgress] = useState({ current: 0, total: 0, status: '' });
   const [bulkResults, setBulkResults] = useState({ success: [], failed: [] });
+  const [selectedSongIds, setSelectedSongIds] = useState(new Set());
+  const [bulkPlaylistDialogOpen, setBulkPlaylistDialogOpen] = useState(false);
+  const [bulkTargetPlaylists, setBulkTargetPlaylists] = useState([]);
+  const [bulkSkippedNotification, setBulkSkippedNotification] = useState(null);
   const [formData, setFormData] = useState({
     title: '',
     performer: '',
@@ -367,6 +372,102 @@ export default function SongManager() {
     } catch (error) {
       console.error('Error deleting song:', error);
       alert('Error al eliminar la canción');
+    }
+  };
+
+  // Reset selection when filters/search change to avoid stale ghost selections
+  useEffect(() => {
+    setSelectedSongIds(new Set());
+  }, [searchQuery, artistFilter, albumFilter]);
+
+  const handleToggleSong = (songId) => {
+    setSelectedSongIds(prev => {
+      const next = new Set(prev);
+      next.has(songId) ? next.delete(songId) : next.add(songId);
+      return next;
+    });
+  };
+
+  const handleSelectAll = () => {
+    const pageIds = displayedSongs.map(s => s.id);
+    const allSelected = pageIds.every(id => selectedSongIds.has(id));
+    if (allSelected) {
+      setSelectedSongIds(prev => {
+        const next = new Set(prev);
+        pageIds.forEach(id => next.delete(id));
+        return next;
+      });
+    } else {
+      setSelectedSongIds(prev => new Set([...prev, ...pageIds]));
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    const count = selectedSongIds.size;
+    if (!confirm(`¿Eliminar ${count} canción(es) permanentemente?`)) return;
+    setUploading(true);
+    const ids = [...selectedSongIds];
+    let failed = 0;
+    for (const id of ids) {
+      try { await deleteSong(id); }
+      catch { failed++; }
+    }
+    setSelectedSongIds(new Set());
+    fetchData();
+    setUploading(false);
+    if (failed > 0) alert(`${ids.length - failed} eliminadas. ${failed} fallaron.`);
+  };
+
+  const handleBulkOpenPlaylistDialog = () => {
+    setBulkTargetPlaylists([]);
+    setBulkPlaylistDialogOpen(true);
+  };
+
+  const handleToggleBulkPlaylist = (playlistId) => {
+    setBulkTargetPlaylists(prev =>
+      prev.includes(playlistId) ? prev.filter(id => id !== playlistId) : [...prev, playlistId]
+    );
+  };
+
+  const handleBulkSavePlaylists = async () => {
+    if (bulkTargetPlaylists.length === 0) return;
+    setUploading(true);
+    const songIds = [...selectedSongIds];
+    const skippedByPlaylist = {};
+
+    try {
+      for (const playlistId of bulkTargetPlaylists) {
+        const existing = await getPlaylistSongs(playlistId);
+        const existingIds = new Set(existing.map(s => s.id));
+        const playlist = playlists.find(p => p.id === playlistId);
+        const playlistName = playlist?.name ?? playlistId;
+
+        const toAdd = songIds.filter(id => !existingIds.has(id));
+        const skipped = songIds.filter(id => existingIds.has(id));
+
+        if (skipped.length > 0) {
+          skippedByPlaylist[playlistName] = skipped.map(id => {
+            const song = songs.find(s => s.id === id);
+            return song ? `${song.title} – ${song.performer}` : id;
+          });
+        }
+
+        if (toAdd.length > 0) {
+          const startPos = existing.length + 1;
+          await bulkAddSongsToPlaylist(playlistId, toAdd, startPos);
+        }
+      }
+
+      setBulkPlaylistDialogOpen(false);
+      setSelectedSongIds(new Set());
+
+      if (Object.keys(skippedByPlaylist).length > 0) {
+        setBulkSkippedNotification(skippedByPlaylist);
+      }
+    } catch (err) {
+      alert('Error al asignar: ' + err.message);
+    } finally {
+      setUploading(false);
     }
   };
 
@@ -724,6 +825,49 @@ export default function SongManager() {
         </Box>
       )}
 
+      {/* Bulk action toolbar */}
+      {selectedSongIds.size > 0 && (
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, p: 2, mb: 1,
+          backgroundColor: '#F4D03F18', border: '1px solid #F4D03F44', borderRadius: '8px', flexWrap: 'wrap' }}>
+          <Typography sx={{ color: '#F4D03F', fontWeight: 'bold' }}>
+            {selectedSongIds.size} canción(es) seleccionada(s)
+          </Typography>
+          <Button
+            size="small"
+            onClick={() => setSelectedSongIds(new Set())}
+            sx={{ color: '#F4D03F99', borderColor: '#F4D03F44', fontSize: '0.75rem' }}
+            variant="outlined"
+          >
+            Deseleccionar todo
+          </Button>
+          <Button
+            size="small"
+            variant="outlined"
+            startIcon={<PlaylistAddIcon />}
+            onClick={handleBulkOpenPlaylistDialog}
+            sx={{
+              color: '#F4D03F', borderColor: '#F4D03F44', fontSize: '0.75rem',
+              '&:hover': { borderColor: '#F4D03F', backgroundColor: '#F4D03F18' },
+            }}
+          >
+            Asignar a Playlist
+          </Button>
+          <Button
+            size="small"
+            variant="outlined"
+            startIcon={<DeleteIcon />}
+            onClick={handleBulkDelete}
+            disabled={uploading}
+            sx={{
+              color: '#ff5252', borderColor: '#ff525244', fontSize: '0.75rem',
+              '&:hover': { borderColor: '#ff5252', backgroundColor: '#ff525218' },
+            }}
+          >
+            Eliminar selección
+          </Button>
+        </Box>
+      )}
+
       <TableContainer
         component={Paper}
         sx={{
@@ -735,6 +879,17 @@ export default function SongManager() {
         <Table>
           <TableHead>
             <TableRow sx={{ borderBottom: '2px solid #F4D03F44' }}>
+              <TableCell padding="checkbox">
+                <Checkbox
+                  indeterminate={
+                    displayedSongs.some(s => selectedSongIds.has(s.id)) &&
+                    !displayedSongs.every(s => selectedSongIds.has(s.id))
+                  }
+                  checked={displayedSongs.length > 0 && displayedSongs.every(s => selectedSongIds.has(s.id))}
+                  onChange={handleSelectAll}
+                  sx={{ color: '#F4D03F44', '&.Mui-checked': { color: '#F4D03F' }, '&.MuiCheckbox-indeterminate': { color: '#F4D03F' } }}
+                />
+              </TableCell>
               {[
                 { key: 'title', label: 'Título' },
                 { key: 'performer', label: 'Artista' },
@@ -766,8 +921,16 @@ export default function SongManager() {
                 sx={{
                   '&:hover': { backgroundColor: '#F4D03F11' },
                   borderBottom: '1px solid #F4D03F22',
+                  backgroundColor: selectedSongIds.has(song.id) ? '#F4D03F08' : 'transparent',
                 }}
               >
+                <TableCell padding="checkbox">
+                  <Checkbox
+                    checked={selectedSongIds.has(song.id)}
+                    onChange={() => handleToggleSong(song.id)}
+                    sx={{ color: '#F4D03F44', '&.Mui-checked': { color: '#F4D03F' } }}
+                  />
+                </TableCell>
                 <TableCell sx={{ color: '#F4D03F' }}>{song.title}</TableCell>
                 <TableCell sx={{ color: '#F4D03F99' }}>{song.performer}</TableCell>
                 <TableCell sx={{ color: '#F4D03F99' }}>{song.album || '-'}</TableCell>
@@ -1186,6 +1349,119 @@ export default function SongManager() {
             }}
           >
             {uploading ? 'Guardando...' : 'Guardar Cambios'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Dialog for Bulk Playlist Assignment */}
+      <Dialog
+        open={bulkPlaylistDialogOpen}
+        onClose={() => setBulkPlaylistDialogOpen(false)}
+        maxWidth="sm"
+        fullWidth
+        PaperProps={{
+          sx: {
+            backgroundColor: '#000',
+            border: '2px solid #F4D03F',
+            borderRadius: '16px',
+          },
+        }}
+      >
+        <DialogTitle sx={{ color: '#F4D03F', fontWeight: 'bold' }}>
+          Asignar a Playlist
+        </DialogTitle>
+        <DialogContent>
+          <Typography sx={{ color: '#F4D03F99', mb: 3 }}>
+            <strong style={{ color: '#F4D03F' }}>{selectedSongIds.size}</strong> canciones seleccionadas. Elige las playlists destino:
+          </Typography>
+          <Box sx={{ maxHeight: 400, overflowY: 'auto' }}>
+            {playlists.map((playlist) => (
+              <FormControlLabel
+                key={playlist.id}
+                control={
+                  <Checkbox
+                    checked={bulkTargetPlaylists.includes(playlist.id)}
+                    onChange={() => handleToggleBulkPlaylist(playlist.id)}
+                    sx={{
+                      color: '#F4D03F44',
+                      '&.Mui-checked': { color: '#F4D03F' },
+                    }}
+                  />
+                }
+                label={
+                  <Typography sx={{ color: '#F4D03F' }}>{playlist.name}</Typography>
+                }
+                sx={{
+                  width: '100%',
+                  mb: 1,
+                  p: 1.5,
+                  borderRadius: '8px',
+                  border: bulkTargetPlaylists.includes(playlist.id) ? '2px solid #F4D03F' : '2px solid #F4D03F22',
+                  backgroundColor: bulkTargetPlaylists.includes(playlist.id) ? '#F4D03F11' : 'transparent',
+                  '&:hover': { backgroundColor: '#F4D03F11', border: '2px solid #F4D03F44' },
+                }}
+              />
+            ))}
+          </Box>
+        </DialogContent>
+        <DialogActions sx={{ p: 3 }}>
+          <Button onClick={() => setBulkPlaylistDialogOpen(false)} sx={{ color: '#F4D03F' }}>
+            Cancelar
+          </Button>
+          <Button
+            onClick={handleBulkSavePlaylists}
+            variant="contained"
+            disabled={uploading || bulkTargetPlaylists.length === 0}
+            sx={{
+              backgroundColor: '#F4D03F',
+              color: '#000',
+              fontWeight: 'bold',
+              '&:hover': { backgroundColor: '#F4D03Fdd' },
+              '&:disabled': { backgroundColor: '#F4D03F33', color: '#00000099' },
+            }}
+          >
+            {uploading ? 'Asignando...' : 'Asignar'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Duplicates notification dialog */}
+      <Dialog
+        open={bulkSkippedNotification !== null}
+        onClose={() => setBulkSkippedNotification(null)}
+        maxWidth="sm"
+        fullWidth
+        PaperProps={{
+          sx: {
+            backgroundColor: '#1a1a1a',
+            border: '1px solid #F4D03F44',
+            borderRadius: '16px',
+          },
+        }}
+      >
+        <DialogTitle sx={{ color: '#F4D03F', fontWeight: 'bold' }}>
+          Canciones duplicadas no agregadas
+        </DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" sx={{ color: '#F4D03F99', mb: 2 }}>
+            Las siguientes canciones ya estaban en la playlist y no fueron agregadas nuevamente:
+          </Typography>
+          {Object.entries(bulkSkippedNotification ?? {}).map(([playlistName, songTitles]) => (
+            <Box key={playlistName} sx={{ mb: 2 }}>
+              <Typography variant="subtitle2" sx={{ color: '#F4D03F', mb: 0.5 }}>
+                Playlist: {playlistName}
+              </Typography>
+              {songTitles.map((title, i) => (
+                <Typography key={i} variant="body2" sx={{ color: '#ffffff99', pl: 1 }}>
+                  • {title}
+                </Typography>
+              ))}
+            </Box>
+          ))}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setBulkSkippedNotification(null)} sx={{ color: '#F4D03F' }}>
+            Cerrar
           </Button>
         </DialogActions>
       </Dialog>
