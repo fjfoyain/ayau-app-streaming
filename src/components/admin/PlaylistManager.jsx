@@ -10,6 +10,8 @@ import TableHead from '@mui/material/TableHead';
 import TableRow from '@mui/material/TableRow';
 import Paper from '@mui/material/Paper';
 import IconButton from '@mui/material/IconButton';
+import Checkbox from '@mui/material/Checkbox';
+import Divider from '@mui/material/Divider';
 import Dialog from '@mui/material/Dialog';
 import DialogTitle from '@mui/material/DialogTitle';
 import DialogContent from '@mui/material/DialogContent';
@@ -26,7 +28,7 @@ import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import CancelIcon from '@mui/icons-material/Cancel';
 import CloudUploadIcon from '@mui/icons-material/CloudUpload';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
-import { getUserPlaylists, createPlaylist, updatePlaylist, deletePlaylist, uploadPlaylistCover, deleteStorageFile, getPlaylistSongs, bulkAddSongsToPlaylist } from '../../services/supabase-api';
+import { getUserPlaylists, createPlaylist, updatePlaylist, deletePlaylist, uploadPlaylistCover, deleteStorageFile, getPlaylistSongs, bulkAddSongsToPlaylist, removeSongFromPlaylist } from '../../services/supabase-api';
 
 export default function PlaylistManager() {
   const [playlists, setPlaylists] = useState([]);
@@ -50,6 +52,9 @@ export default function PlaylistManager() {
   const [dupCoverFile, setDupCoverFile] = useState(null);
   const [dupCoverPreview, setDupCoverPreview] = useState(null);
   const [dupKeepCover, setDupKeepCover] = useState(true);
+  const [editingPlaylistSongs, setEditingPlaylistSongs] = useState([]);
+  const [removedSongIds, setRemovedSongIds] = useState(new Set());
+  const [loadingSongs, setLoadingSongs] = useState(false);
 
   useEffect(() => {
     fetchPlaylists();
@@ -75,14 +80,22 @@ export default function PlaylistManager() {
         cover_image_url: playlist.cover_image_url || '',
         is_public: playlist.is_public,
       });
-      // Show existing cover as preview if it's an http URL (already signed)
       setCoverPreview(playlist.cover_image_url && /^https?:\/\//i.test(playlist.cover_image_url)
         ? playlist.cover_image_url
         : null);
+      setEditingPlaylistSongs([]);
+      setRemovedSongIds(new Set());
+      setLoadingSongs(true);
+      getPlaylistSongs(playlist.id)
+        .then(songs => setEditingPlaylistSongs(songs))
+        .catch(() => {})
+        .finally(() => setLoadingSongs(false));
     } else {
       setEditingPlaylist(null);
       setFormData({ name: '', description: '', cover_image_url: '', is_public: false });
       setCoverPreview(null);
+      setEditingPlaylistSongs([]);
+      setRemovedSongIds(new Set());
     }
     setCoverFile(null);
     setDialogOpen(true);
@@ -93,6 +106,16 @@ export default function PlaylistManager() {
     setEditingPlaylist(null);
     setCoverFile(null);
     setCoverPreview(null);
+    setEditingPlaylistSongs([]);
+    setRemovedSongIds(new Set());
+  };
+
+  const handleToggleRemoveSong = (songId) => {
+    setRemovedSongIds(prev => {
+      const next = new Set(prev);
+      next.has(songId) ? next.delete(songId) : next.add(songId);
+      return next;
+    });
   };
 
   const handleCoverFileChange = (e) => {
@@ -119,6 +142,11 @@ export default function PlaylistManager() {
         }
 
         await updatePlaylist(editingPlaylist.id, updates);
+
+        // Remove unchecked songs
+        for (const songId of removedSongIds) {
+          await removeSongFromPlaylist(editingPlaylist.id, songId);
+        }
       } else {
         const newPlaylist = await createPlaylist(formData);
 
@@ -420,6 +448,70 @@ export default function PlaylistManager() {
             label="Playlist Pública"
             sx={{ color: '#F4D03F', mt: 1 }}
           />
+
+          {/* Songs list (edit mode only) */}
+          {editingPlaylist && (
+            <>
+              <Divider sx={{ borderColor: '#F4D03F22', my: 2 }} />
+              <Typography variant="subtitle2" sx={{ color: '#F4D03F', mb: 1 }}>
+                Canciones en la playlist
+                {removedSongIds.size > 0 && (
+                  <Typography component="span" variant="caption" sx={{ color: '#ff5252', ml: 1 }}>
+                    ({removedSongIds.size} se eliminarán al guardar)
+                  </Typography>
+                )}
+              </Typography>
+              {loadingSongs ? (
+                <Box sx={{ display: 'flex', justifyContent: 'center', py: 2 }}>
+                  <CircularProgress size={24} sx={{ color: '#F4D03F' }} />
+                </Box>
+              ) : editingPlaylistSongs.length === 0 ? (
+                <Typography variant="body2" sx={{ color: '#F4D03F44', fontStyle: 'italic' }}>
+                  Esta playlist no tiene canciones.
+                </Typography>
+              ) : (
+                <Box sx={{ maxHeight: 260, overflowY: 'auto', border: '1px solid #F4D03F22', borderRadius: '8px' }}>
+                  {editingPlaylistSongs.map((song) => {
+                    const removed = removedSongIds.has(song.id);
+                    return (
+                      <Box
+                        key={song.id}
+                        onClick={() => handleToggleRemoveSong(song.id)}
+                        sx={{
+                          display: 'flex', alignItems: 'center', gap: 1,
+                          px: 1.5, py: 0.75, cursor: 'pointer',
+                          borderBottom: '1px solid #F4D03F11',
+                          backgroundColor: removed ? '#ff525210' : 'transparent',
+                          '&:hover': { backgroundColor: removed ? '#ff525220' : '#F4D03F0A' },
+                          '&:last-child': { borderBottom: 'none' },
+                        }}
+                      >
+                        <Checkbox
+                          checked={!removed}
+                          onChange={() => handleToggleRemoveSong(song.id)}
+                          onClick={(e) => e.stopPropagation()}
+                          size="small"
+                          sx={{ color: '#F4D03F44', '&.Mui-checked': { color: '#F4D03F' }, p: 0.5 }}
+                        />
+                        <Box sx={{ flex: 1, minWidth: 0 }}>
+                          <Typography
+                            variant="body2"
+                            sx={{ color: removed ? '#ffffff44' : '#F4D03F', textDecoration: removed ? 'line-through' : 'none', lineHeight: 1.3 }}
+                            noWrap
+                          >
+                            {song.title}
+                          </Typography>
+                          <Typography variant="caption" sx={{ color: removed ? '#ffffff22' : '#F4D03F66' }} noWrap>
+                            {song.performer}
+                          </Typography>
+                        </Box>
+                      </Box>
+                    );
+                  })}
+                </Box>
+              )}
+            </>
+          )}
         </DialogContent>
         <DialogActions sx={{ p: 3 }}>
           <Button onClick={handleCloseDialog} sx={{ color: '#F4D03F' }} disabled={uploading}>
