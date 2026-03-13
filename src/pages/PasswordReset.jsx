@@ -143,6 +143,17 @@ export default function PasswordReset() {
       const { error } = await supabase.auth.updateUser({ password: newPassword });
       if (error) throw error;
 
+      // For new users (invite flow): activate the account and mark email as verified
+      if (isNewUser) {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          await supabase
+            .from('user_profiles')
+            .update({ is_active: true, email_verified_manually: true })
+            .eq('id', user.id);
+        }
+      }
+
       setSuccess('Tu contraseña ha sido restablecida exitosamente. Redirigiendo...');
       // Sign out so the user logs in fresh with the new password
       await supabase.auth.signOut();
