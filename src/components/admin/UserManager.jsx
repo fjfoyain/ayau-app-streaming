@@ -71,7 +71,7 @@ export default function UserManager() {
   const [newUserData, setNewUserData] = useState({
     email: '',
     full_name: '',
-    role: 'user',
+    role: 'account_user',
     access_level: 'global', // global for admin/manager, account/location for client users
     client_id: '',
     location_id: '',
@@ -148,7 +148,7 @@ export default function UserManager() {
     setNewUserData({
       email: '',
       full_name: '',
-      role: 'user',
+      role: 'account_user',
       access_level: 'global',
       client_id: '',
       location_id: '',
@@ -162,7 +162,7 @@ export default function UserManager() {
     setNewUserData({
       email: '',
       full_name: '',
-      role: 'user',
+      role: 'account_user',
       access_level: 'global',
       client_id: '',
       location_id: '',
@@ -305,8 +305,8 @@ export default function UserManager() {
     const colors = {
       admin: '#F4D03F',
       manager: '#2196F3',
-      user: '#4CAF50',
-      client_user: '#9C27B0',
+      account_user: '#4CAF50',
+      local_user: '#9C27B0',
     };
 
     return (
@@ -330,7 +330,7 @@ export default function UserManager() {
       return 'Global (Interno)';
     }
     if (user.access_level === 'global' || (!user.client_id && !user.location_id)) {
-      return user.role === 'user' ? 'Sin asignar' : 'Global (Interno)';
+      return user.role === 'account_user' ? 'Sin asignar' : 'Global (Interno)';
     }
     if (user.access_level === 'account' && user.client_id) {
       const account = accounts.find((a) => a.id === user.client_id);
@@ -577,8 +577,8 @@ export default function UserManager() {
             >
               <MenuItem value="admin">Admin - Acceso total al sistema</MenuItem>
               <MenuItem value="manager">Manager - Gestion de clientes y locaciones</MenuItem>
-              <MenuItem value="user">User - Usuario regular</MenuItem>
-              <MenuItem value="client_user">Client User - Usuario de cliente</MenuItem>
+              <MenuItem value="account_user">Account User - Usuario de cuenta</MenuItem>
+              <MenuItem value="local_user">Local User - Usuario de local</MenuItem>
             </Select>
           </FormControl>
 
@@ -1019,10 +1019,10 @@ export default function UserManager() {
                   const newRole = e.target.value;
                   // Auto-set access level based on role
                   let newAccessLevel = 'global';
-                  if (newRole === 'user') {
-                    newAccessLevel = 'account'; // Chain users manage all locations in an account
-                  } else if (newRole === 'client_user') {
-                    newAccessLevel = 'location'; // Local users assigned to specific locations
+                  if (newRole === 'account_user') {
+                    newAccessLevel = 'account';
+                  } else if (newRole === 'local_user') {
+                    newAccessLevel = 'location';
                   }
                   setNewUserData({
                     ...newUserData,
@@ -1055,8 +1055,8 @@ export default function UserManager() {
               >
                 <MenuItem value="admin">👑 Administrador (Acceso total - Equipo Ayau)</MenuItem>
                 <MenuItem value="manager">🔧 Manager (Gestión contenido - Equipo Ayau)</MenuItem>
-                <MenuItem value="user">🏪 Usuario Cadena (Administra todos los locales de una cuenta)</MenuItem>
-                <MenuItem value="client_user">🏢 Usuario Local (Usuario de un local específico)</MenuItem>
+                <MenuItem value="account_user">🏪 Account User (Administra todos los locales de una cuenta)</MenuItem>
+                <MenuItem value="local_user">🏢 Local User (Usuario de un local específico)</MenuItem>
               </Select>
             </FormControl>
             
@@ -1076,8 +1076,8 @@ export default function UserManager() {
                 </Typography>
               </Paper>
             )}
-            {/* Info box for user role */}
-            {newUserData.role === 'user' && (
+            {/* Info box for account_user role */}
+            {newUserData.role === 'account_user' && (
               <Paper
                 sx={{
                   p: 2,
@@ -1092,8 +1092,8 @@ export default function UserManager() {
                 </Typography>
               </Paper>
             )}
-            {/* Info box for client_user role */}
-            {newUserData.role === 'client_user' && (
+            {/* Info box for local_user role */}
+            {newUserData.role === 'local_user' && (
               <Paper
                 sx={{
                   p: 2,

@@ -64,6 +64,12 @@ Deno.serve(async (req: Request) => {
       throw new Error('Missing required field: action')
     }
 
+    // Validate role value if provided
+    const validRoles = ['admin', 'manager', 'account_user', 'local_user']
+    if (role && !validRoles.includes(role)) {
+      throw new Error(`Invalid role: ${role}. Must be one of: ${validRoles.join(', ')}`)
+    }
+
     if (action === 'delete') {
       if (!user_id) throw new Error('Missing required field: user_id')
 
@@ -99,13 +105,15 @@ Deno.serve(async (req: Request) => {
     const inviteRedirectTo = redirectTo || siteUrl || 'https://app.ayau.com'
 
     if (action === 'invite') {
+      const finalRole = role || 'account_user'
+
       // Create user via invitation — sends email with "Set your password" link
       const { data, error: inviteError } = await supabaseAdmin.auth.admin.inviteUserByEmail(
         email,
         {
           data: {
             full_name: full_name || '',
-            role: role || 'user',
+            role: finalRole,
           },
           redirectTo: inviteRedirectTo,
         }
@@ -124,11 +132,24 @@ Deno.serve(async (req: Request) => {
       }
 
       if (access_level === 'account') {
+        // account_user: asignado a una cuenta, ve todas las playlists de esa cuenta
         profileUpdates.client_id = client_id || null
         profileUpdates.location_id = null
       } else if (access_level === 'location') {
+        // local_user: asignado a un local específico, pero hereda las playlists de la cuenta
         profileUpdates.location_id = location_id || null
-        profileUpdates.client_id = null
+
+        // Resolver client_id desde la location para que el local_user tenga acceso a playlists de cuenta
+        if (location_id) {
+          const { data: locationData } = await supabaseAdmin
+            .from('locations')
+            .select('client_id')
+            .eq('id', location_id)
+            .single()
+          profileUpdates.client_id = locationData?.client_id || null
+        } else {
+          profileUpdates.client_id = null
+        }
       }
 
       if (Object.keys(profileUpdates).length > 0 && data.user) {

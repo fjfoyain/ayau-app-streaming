@@ -3,8 +3,8 @@ import { supabase } from '../lib/supabase'
 /**
  * Obtener playlists del usuario autenticado según su rol:
  * - admin / manager: todas las playlists (vía RLS)
- * - user (Usuario Cadena, access_level=account): playlists asignadas a su cuenta
- * - client_user (Usuario Local, access_level=location): playlists asignadas a su local
+ * - account_user (access_level=account): playlists asignadas a su cuenta
+ * - local_user (access_level=location): playlists de la cuenta de su local (subconjunto potencial)
  */
 export const getUserPlaylists = async () => {
   const profile = await getCurrentUserProfile();
@@ -22,12 +22,12 @@ export const getUserPlaylists = async () => {
       throw error;
     }
     rawPlaylists = data || [];
-  } else if (profile.access_level === 'account' && profile.client_id) {
-    // Usuario Cadena: playlists asignadas a la cuenta
+  } else if (profile.role === 'account_user' && profile.client_id) {
+    // Account User: todas las playlists asignadas a su cuenta
     rawPlaylists = await getAccountPlaylists(profile.client_id) || [];
-  } else if (profile.access_level === 'location' && profile.location_id) {
-    // Usuario Local: playlists asignadas al local
-    rawPlaylists = await getLocationPlaylists(profile.location_id) || [];
+  } else if (profile.role === 'local_user' && profile.client_id) {
+    // Local User: playlists de la cuenta (hereda del account_user de su cuenta)
+    rawPlaylists = await getAccountPlaylists(profile.client_id) || [];
   }
 
   // Convert playlist cover images to signed URLs
@@ -461,7 +461,7 @@ export const inviteUser = async (userData) => {
       action: 'invite',
       email: userData.email,
       full_name: userData.full_name,
-      role: userData.role || 'user',
+      role: userData.role || 'account_user',
       access_level: userData.access_level || 'global',
       client_id: userData.client_id || null,
       location_id: userData.location_id || null,
