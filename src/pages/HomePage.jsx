@@ -265,8 +265,23 @@ export default function HomePage({ session }) {
                     disabled={false}
                     className="w-full text-left p-4 rounded-lg border-2 border-ayau-gold/40 bg-black hover:bg-ayau-gold/10 hover:border-ayau-gold transition-all duration-200 flex items-center gap-3 group disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    <div className="w-12 h-12 rounded-lg bg-ayau-gold/20 flex items-center justify-center border-2 border-ayau-gold/40 group-hover:border-ayau-gold transition-colors">
-                      <PlayArrowIcon sx={{ color: '#F4D03F', fontSize: '2rem' }} />
+                    <div className="w-12 h-12 rounded-lg border-2 border-ayau-gold/40 group-hover:border-ayau-gold transition-colors overflow-hidden relative flex-shrink-0">
+                      {playlist.cover_image_url ? (
+                        <>
+                          <img
+                            src={playlist.cover_image_url}
+                            alt={playlist.name}
+                            className="w-full h-full object-cover"
+                          />
+                          <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                            <PlayArrowIcon sx={{ color: '#F4D03F', fontSize: '1.5rem' }} />
+                          </div>
+                        </>
+                      ) : (
+                        <div className="w-full h-full bg-ayau-gold/20 flex items-center justify-center">
+                          <PlayArrowIcon sx={{ color: '#F4D03F', fontSize: '2rem' }} />
+                        </div>
+                      )}
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="font-bold text-ayau-gold truncate">{playlist.name}</p>
